@@ -168,7 +168,7 @@ end
 isrestart   = false
 du          = zeros(length(u0))
 p           = deepcopy(pM_data)
-opt         = ADAM(1e-2)
+opt         = Flux.Adam(1e-2)
 l           = []
 p_list      = []
 N_iter      = 2e4
