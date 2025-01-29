@@ -11,7 +11,7 @@ using NNlib, ConcreteStructs, WeightInitializers, ChainRulesCore
 using ComponentArrays
 using Random
 using ForwardDiff
-using Flux: ADAM, mae, update!, mean
+using Flux: mae, update!, mean
 using Flux
 using Optimisers
 pythonplot()
@@ -165,7 +165,7 @@ function callback(i)
 end
 
 # TRAINING SETUP
-isrestart   = false
+isrestart   = true
 du          = zeros(length(u0))
 p           = deepcopy(pM_data)
 opt         = Flux.Adam(1e-2)
