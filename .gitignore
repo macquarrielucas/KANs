@@ -1,2 +1,5 @@
 .vscode/settings.json
 KANODE/.CondaPkg
+KANODE/test
+KANODE/hidden-ODE/test
+KANODE/hidden-ODE/render1.mp4

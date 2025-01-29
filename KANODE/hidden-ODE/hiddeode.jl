@@ -1,14 +1,12 @@
 # PACKAGES AND INCLUSIONS
 using DiffEqFlux, OrdinaryDiffEq, Flux, Optim, Plots, LinearAlgebra
+using Flux: mae, update!, mean
 using Random
 using ModelingToolkit
 using MAT
 using NNlib, ConcreteStructs, WeightInitializers, ChainRulesCore
 using ComponentArrays
-using Random
 using ForwardDiff
-using Flux: mae, update!, mean
-using Flux
 using Optimisers
 pythonplot()
 
@@ -23,7 +21,7 @@ mkpath(dir*add_path*"checkpoints")
 mkpath(dir*add_path*"results")
 mkpath(dir*add_path*"training_frames")
 # KAN PACKAGE LOAD
-include("Lotka-Volterra/src/KolmogorovArnold.jl")
+include("../Lotka-Volterra/src/KolmogorovArnold.jl")
 using .KolmogorovArnold
 
 #Random
@@ -141,10 +139,8 @@ opt = Flux.Adam(5e-4)
 using Zygote, ProgressBars, Printf
 N_iter = 1000
 iterator = ProgressBar(1:N_iter)
-function save_training_frame(p, iter; save=false)
-    # Create directories if needed
-    mkpath(dir*add_path*"training_frames")
-    
+function save_training_frame(p, iter, training_dir; save=false)
+
     # Create grid for interaction function visualization
     x = range(0, 3, length=20)
     y = range(0, 3, length=20)
@@ -197,10 +193,14 @@ function save_training_frame(p, iter; save=false)
         title="Time Series Comparison", legend=:topright)
     if save
         # Save figure with iteration number
-        savefig(plt, dir*add_path*"training_frames/frame_$(lpad(iter, 5, '0')).png")
+        savefig(plt, joinpath(training_dir, "frame_$(lpad(iter, 5, '0')).png"))
     end
     return plt
 end
+
+# Create directories if needed
+training_dir = dir*add_path*"training_frames"*"_" * string(round(Int, time()))
+mkpath(training_dir)
 
 for i in iterator
     
@@ -218,7 +218,7 @@ for i in iterator
                             "Test_Loss:", @sprintf("%.2f", loss_curr_test), "|"))
 
     if i%10 == 0
-        display(save_training_frame(p,i; save=true))
+        display(save_training_frame(p,i, training_dir; save=true))
     end
     # SAVE
     #callback(i)
