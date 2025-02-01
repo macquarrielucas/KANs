@@ -2,7 +2,7 @@
 #======================================================#
 # Kolmogorov-Arnold Layer
 #======================================================#
-@concrete struct KDense{use_base_act} <: LuxCore.AbstractLuxLayer
+@concrete struct KDense{use_base_act} <: LuxCore.AbstractExplicitLayer
     in_dims::Int
     out_dims::Int
     grid_len::Int
@@ -152,5 +152,4 @@ function (l::KDense{use_base_act})(x::AbstractArray, p, st) where{use_base_act}
 
     reshape(y, size_out), st
 end
-#======================================================#
-#
+#======================================================# 
