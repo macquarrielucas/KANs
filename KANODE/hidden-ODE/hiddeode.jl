@@ -55,8 +55,8 @@ end
 
 #data generation parameters
 dt=0.1
-tspan = (0.0, 14)
-tspan_train=(0.0, 3.5)
+tspan = (0.0, 26)
+tspan_train=(0.0, 14)
 u0 = [1, 1]
 p_=[]
 prob = ODEProblem(lotka!, u0,tspan,p_)
@@ -200,10 +200,10 @@ end
 
 # Create directories if needed
 training_dir = dir*add_path*"training_frames"*"_" * string(round(Int, time()))
+print("Making directory ", string(training_dir))
 mkpath(training_dir)
 
 for i in iterator
-    
     # GRADIENT COMPUTATION
     grad = Zygote.gradient(loss_train, p)[1]
 
