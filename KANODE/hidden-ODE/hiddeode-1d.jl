@@ -32,13 +32,13 @@ rng = Random.default_rng()
 
 function lotka!(du,u,p,t) 
     du[1] = u[1]*(1-u[1]) - 0.5*u[1]*u[2]
-    du[2] = 0.5*u[1]*u[2] - 0.01*u[2]
+    du[2] = 0.5*u[1]*u[2] - 0.03*u[2]
 end
 
 #data generation parameters
-dt=0.05
-tspan_test = (0.0, 100)
-tspan_train=(0.0, 14)
+dt=0.1
+tspan_test = (0.0, 500)
+tspan_train=(0.0, 100)
 u0 = [1.0f0, 1.0f0]
 p_=[]
 prob = ODEProblem(lotka!, u0,tspan_test,p_)
@@ -62,8 +62,8 @@ normalizer = softsign # sigmoid(_fast), tanh(_fast), softsign
 ###layer_width and grid_size can be modified here to replicate the testing in section A2 of the manuscript
 
 
-layer_width=10
-grid_size=10
+layer_width=5
+grid_size=5
 #This KAN looks like
 # phi1(x) + phi2(x) + phi3(x) + ... + phi10(x) 
 kan1 = Lux.Chain(
@@ -84,7 +84,7 @@ p = ComponentArray(pM_data, pM_axis)
 function kanode!(du, u, p, t)
     kan1_(x) = kan1([x], p, stM)[1][1]
     du[1] = kan1_(u[1]) - 0.5*u[1]*u[2]
-    du[2] = 0.5*u[1]*u[2] - 0.01*u[2]
+    du[2] = 0.5*u[1]*u[2] - 0.03*u[2]
 end
 
 # PREDICTION FUNCTION
@@ -132,8 +132,9 @@ end
 
 # Create grid for interaction function visualization
 
-sol_max = maximum([x[1] for x in solution.u]) #Max of x for plotting
-x = collect(range(-1, sol_max+1, length=40))
+sol_max = maximum(vcat(solution.u...)) #Max of x for plotting
+sol_max_x =maximum([x[1] for x in solution.u]) 
+x = collect(range(-1, sol_max_x+1, length=40))
 true_sol = solution  # Higher resolution for smooth plot
 #y = range(0, 3, length=20)
 #xy = [(i,j) for i in x, j in y]
@@ -164,8 +165,8 @@ if SAVE_ON
     end
 end
 #opt = Flux.Momentum(1e-3, 0.9)
-opt = Flux.Adam(1e-3)
-N_iter = 1000
+opt = Flux.Adam(1e-4)
+N_iter = 10000
 iterator = ProgressBar(1:N_iter)
 l = []
 l_test=[]

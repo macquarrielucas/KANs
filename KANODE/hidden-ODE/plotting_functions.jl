@@ -84,16 +84,17 @@ function save_training_frame_1d(p, iter, loss, test_loss,training_dir; save=fals
             xlabel="x", ylabel="y",
             label="True h(x)",
             color=:black,
-            xlim=(-1,sol_max+1))
+            xlim=(-1,sol_max_x+1))
     plot!(plt[1], x, kan_h, 
             title="KAN Learned Interaction (Iteration $iter)",
             label = "KAN(x,θ)",
             color=:red,
             linestyle=:dash)
-    vspan!(plt[1],[0,sol_max],alpha=0.2, color=:gray, label="State Space")
+    vspan!(plt[1],[0,sol_max_x],alpha=0.2, color=:gray, label="State Space")
   # Top right: loss
     plot!(plt[2], loss, color = loss_color, label = "training loss",
-            title = "Loss Profiles", xlabel = "iteration",
+            title = string("Loss Profiles| Loss:", @sprintf("%.4e", loss[end]), "|",
+                            "Test_Loss:", @sprintf("%.4e", test_loss[end])), xlabel = "iteration",
             yaxis=:log)
     plot!(plt[2], test_loss, color = test_loss_color , label = "test loss")
     # Bottom left: Phase plane
@@ -101,21 +102,19 @@ function save_training_frame_1d(p, iter, loss, test_loss,training_dir; save=fals
           label="True Solution", lw=2, color=:black,
           xlabel="x", ylabel="y",
           #xlim=(0,4.5),ylim=(0,4.5),
-           title=string("Phase Plane | Loss:", @sprintf("%.4e", loss[end]), "|",
-                            "Test_Loss:", @sprintf("%.4e", test_loss[end])))
+           title="Phase Plane")
     plot!(plt[3], kan_sol[1,:], kan_sol[2,:], 
           label="KAN Prediction", lw=2, color=:red, linestyle=:dash)
     scatter!(plt[3], [u0[1]], [u0[2]], color=:blue, label="Initial Condition")
     
     # Bottom right: Time series comparison
-    plot!(plt[4], t_test, true_sol[1,:], label="True x", color=:lightskyblue2, lw=2)
-    plot!(plt[4], t_test, true_sol[2,:], label="True y", color=:royalblue1, lw=2)
-    plot!(plt[4], kan_sol.t, kan_sol[1,:], label="KAN x", color=:lightskyblue2, linestyle=:dash, lw=2)
-    plot!(plt[4], kan_sol.t, kan_sol[2,:], label="KAN y", color=:royalblue1, linestyle=:dash, lw=2)
+    plot!(plt[4], t_test, true_sol[1,:], label="True x", color=timeseries_x_color, lw=2)
+    plot!(plt[4], t_test, true_sol[2,:], label="True y", color=timeseries_y_color, lw=2)
+    plot!(plt[4], kan_sol.t, kan_sol[1,:], label="KAN x", color=timeseries_x_color, linestyle=:dash, lw=2)
+    plot!(plt[4], kan_sol.t, kan_sol[2,:], label="KAN y", color=timeseries_y_color, linestyle=:dash, lw=2)
     vspan!(plt[4], [tspan_train[1], tspan_train[2]], alpha=0.2, color=:gray, label="Training Region")
     plot!(plt[4], 
         xlabel="Time", ylabel="Population",
-        ylim=(0,6),
         title="Time Series Comparison", legend=:topright)
     if save
         # Save figure with iteration number
