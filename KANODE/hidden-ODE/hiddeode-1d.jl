@@ -1,14 +1,24 @@
 # PACKAGES AND INCLUSIONS
-using DiffEqFlux, OrdinaryDiffEq, Flux, Optim, Plots, LinearAlgebra
-using Flux: mae, update!, mean
-using Random
-using ModelingToolkit
-using MAT
-using NNlib, ConcreteStructs, WeightInitializers, ChainRulesCore
+using ChainRulesCore
 using ComponentArrays
+using ConcreteStructs
+using DiffEqFlux
+using Flux
+using Flux: mae, mean, update!
 using ForwardDiff
+using LinearAlgebra
+using MAT
+using ModelingToolkit
+using NNlib
+using Optim
 using Optimisers
-using Zygote, ProgressBars, Printf
+using OrdinaryDiffEq
+using Plots
+using Printf
+using ProgressBars
+using Random
+using WeightInitializers
+using Zygote
 pythonplot()
 
 include("plotting_functions.jl")
@@ -28,7 +38,7 @@ using .KolmogorovArnold
 
 #Random
 rng = Random.default_rng()
-#Random.seed!(rng, 1)
+Random.seed!(rng, 3)
 
 function lotka!(du,u,p,t) 
     du[1] = u[1]*(1-u[1]) - 0.5*u[1]*u[2]
@@ -63,7 +73,7 @@ normalizer = softsign # sigmoid(_fast), tanh(_fast), softsign
 
 
 layer_width=5
-grid_size=5
+grid_size=10
 #This KAN looks like
 # phi1(x) + phi2(x) + phi3(x) + ... + phi10(x) 
 kan1 = Lux.Chain(
@@ -147,7 +157,7 @@ true_sol = solution  # Higher resolution for smooth plot
 
 
 
-SAVE_ON = false
+SAVE_ON = true
 training_dir = nothing
 if SAVE_ON
     # Create directories if needed
