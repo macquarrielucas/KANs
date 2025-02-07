@@ -12,8 +12,8 @@ test_loss_color = :tomato
 loss_color=:royalblue1
 timeseries_x_color = :lightskyblue2
 timeseries_y_color= :royalblue1
-
-function save_training_frame_2d(static_data::StaticData, p, iter, loss, test_loss, training_dir; save=false)
+spinning_rate = 0.5
+function save_training_frame_2d(static_data::StaticData, model::UDE, p, iter, loss, test_loss, training_dir; save=false)
 
     x, y, xy, true_h, true_sol, tspan_train, u0 = static_data.x, static_data.y, static_data.xy, static_data.true_h, static_data.true_sol, static_data.tspan_train, static_data.u0
 
@@ -33,7 +33,7 @@ function save_training_frame_2d(static_data::StaticData, p, iter, loss, test_los
           title="True Interaction h(x,y) compared with KAN (Iteration $iter)",
           xlabel="x", ylabel="y", zlabel="h(x,y)",
           alpha = 0.2, c=:blues,
-            camera=(iter, 30))
+            camera=(iter*spinning_rate, 30))
     
     plot!(plt[1], x, y, kan_h, st=:surface, c=:blues,
             label="KAN") 
