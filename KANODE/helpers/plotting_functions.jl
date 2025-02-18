@@ -110,7 +110,9 @@ function plot_loss(plt, loss::Vector{Real}, test_loss::Vector{Real}, iter::Int):
           title = string("Loss Profiles| Loss:", @sprintf("%.4e", loss[end]), "|",
                           "Test_Loss:", @sprintf("%.4e", test_loss[end])), xlabel = "iteration",
           yaxis = :log)
-    # plot!(plt, test_loss, color = COLORS.test_loss, label = "test loss")
+    if !isempty(test_loss)
+        plot!(plt, test_loss, color = COLORS.test_loss, label = "test loss")
+    end
     return nothing
 end
 """
@@ -263,7 +265,7 @@ Saves a training frame plot consisting of interaction function surfaces, loss, p
 - `pM`: Parameters for the neural network.
 - `iter::Int`: Current iteration number.
 - `loss::Vector{Real}`: Vector containing the training loss values.
-- `test_loss::Vector{Real}`: Vector containing the test loss values.
+- `test_loss::Vector{Real}`: Vector containing the test loss values. Pass empty vector if not available.
 - `training_dir::String`: Directory where the training frames should be saved.
 - `save`: Boolean flag indicating whether to save the plot. Default is `false`.
 
