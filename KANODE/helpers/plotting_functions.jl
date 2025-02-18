@@ -3,13 +3,21 @@ using Suppressor
 using Plots
 
 const COLORS = (
+    #Hidden function Plot (Top left)
+    pred_hidden_function=:red,
+    true_hidden_function=:black,
+    #Loss (Top right)
     test_loss = :tomato,
     loss = :royalblue1,
-    timeseries_x = :lightskyblue2,
-    timeseries_y = :royalblue1,
+    #Phaseplane     
     true_solution = :black,
     prediction = :royalblue1,
-    initial_condition = :blue,
+    train_prediction = :orange,
+    initial_condition = :red,
+    #Time series
+    timeseries_x = :lightskyblue2,
+    timeseries_y = :royalblue1,
+    #etc 
     training_region = :gray
 )
 dir = @__DIR__
@@ -132,17 +140,19 @@ function plot_phase_plane(plt, UDE_sol::Matrix{Float64}, static_data::Union{Stat
     plot!(plt, obs_x, obs_y, 
           label = "True Solution", lw = 2, color = COLORS.true_solution,
           xlabel = "x", ylabel = "y",
-          xlim = (0, 4.5), ylim = (0, 4.5), #this needs to be changed eventually
+          #xlim = (0, 4.5), ylim = (0, 4.5), #this needs to be changed eventually
           title = "Phase Plane")
     plot!(plt, pred_x, pred_y, 
-          label = "KAN Prediction", lw = 2, color = COLORS.prediction, linestyle = :dash)
+          label = "KAN Prediction", 
+          lw = 2, color = COLORS.prediction, linestyle = :dash)
     
     # Plot the solution over the training span
     train_indices = findall(t -> t >= static_data.tspan_train[1] && t <= static_data.tspan_train[2], obs_time)
     plot!(plt, pred_x[train_indices], pred_y[train_indices], 
-          label = "KAN Prediction (Training Span)", lw = 2, color = :yellow, linestyle = :dash, zorder = 2)
+          label = "KAN Prediction (Training Span)", 
+          lw = 2, color = COLORS.train_prediction, linestyle = :dash)#, zorder = 2)
     
-    scatter!(plt, [static_data.u0[1]], [static_data.u0[2]], color = COLORS.initial_condition, label = "Initial Condition", zorder = 3)
+    scatter!(plt, [static_data.u0[1]], [static_data.u0[2]], color = COLORS.initial_condition, label = "Initial Condition")#, zorder = 3)
     return nothing
 end
 """
@@ -171,7 +181,7 @@ function plot_time_series(plt, UDE_sol::Matrix{Float64}, static_data::Union{Stat
     plot!(plt, pred_times, pred_y, label = "UDE Solution w/ KAN y", color = COLORS.timeseries_y, linestyle = :dash, lw = 2)
     vspan!(plt, [static_data.tspan_train[1], static_data.tspan_train[2]], alpha = 0.2, color = COLORS.training_region, label = "Training Region",
            xlabel = "Time", ylabel = "Population",
-           ylim = (0, 6),
+           #ylim = (0, 6),
            title = "Time Series Comparison", legend = :topright)
     return nothing
 end
@@ -227,12 +237,12 @@ function plot_interaction_surface_1d(plt, static_data::StaticData_1D, nn_h, iter
           title = "True Interaction: h(x) = x(1-x)/10",
           xlabel = "x", ylabel = "y",
           label = "True h(x)",
-          color = :black,
+          color = COLORS.true_hidden_function,
           xlim = (-1, static_data.sol_max_x + 1))
     plot!(plt, static_data.x, nn_h, 
           title = "KAN Learned Interaction (Iteration $iter)",
           label = "KAN(x,θ)",
-          color = :red,
+          color = COLORS.pred_hidden_function,
           linestyle = :dash)
     vspan!(plt, [0,static_data.sol_max_x], alpha = 0.2, color = :gray, label = "State Space")
 end
