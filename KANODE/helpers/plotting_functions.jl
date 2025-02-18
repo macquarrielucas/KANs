@@ -1,6 +1,6 @@
 using Printf
-# This is just to suppress warnings
 using Suppressor
+using Plots
 
 const COLORS = (
     test_loss = :tomato,
@@ -13,6 +13,7 @@ const COLORS = (
     training_region = :gray
 )
 dir = @__DIR__
+
 # Structure for passing data for the 2d plot which doesn't need to be recalculated
 struct StaticData_2D
     x::StepRangeLen
@@ -60,6 +61,9 @@ function find_frame_directory()
     training_dir
 end
 
+####################
+## Subplots ##
+####################
 function plot_loss(plt, loss, test_loss, iter)
     plot!(plt, loss, color = COLORS.loss, label = "training loss",
           title = string("Loss Profiles| Loss:", @sprintf("%.4e", loss[end]), "|",
@@ -90,8 +94,38 @@ function plot_time_series(plt, model, UDE_sol, static_data)
            title = "Time Series Comparison", legend = :topright)
 end
 
-function save_training_frame_2d(static_data::StaticData_2D, model::UDE, nn, pM, iter, loss, test_loss, training_dir; save = false)
-    @suppress begin
+function plot_interaction_surface_2d(plt, static_data::StaticData_2D, nn_h, iter)
+    plot!(plt, static_data.x, static_data.y, static_data.true_h, st = :surface, 
+          title = "True Interaction h(x,y) compared with KAN (Iteration $iter)",
+          xlabel = "x", ylabel = "y", zlabel = "h(x,y)",
+          alpha = 0.4, c = :blues,
+          camera = (iter * static_data.spinning_rate, 30))
+    
+    plot!(plt, static_data.x, static_data.y, nn_h, st = :surface, c = :blues,
+          alpha = 0.4, label = "KAN")
+end
+
+function plot_interaction_surface_1d(plt, static_data::StaticData_1D, nn_h, iter)
+    x = static_data.x
+    plot!(plt, x, x .* (1 .- x),
+          title = "True Interaction: h(x) = x(1-x)/10",
+          xlabel = "x", ylabel = "y",
+          label = "True h(x)",
+          color = :black,
+          xlim = (-1, static_data.sol_max_x + 1))
+    plot!(plt, x, nn_h, 
+          title = "KAN Learned Interaction (Iteration $iter)",
+          label = "KAN(x,θ)",
+          color = :red,
+          linestyle = :dash)
+    vspan!(plt, [0,static_data.sol_max_x], alpha = 0.2, color = :gray, label = "State Space")
+end
+
+####################
+## Main Plotting ##
+####################
+function save_training_frame(static_data, model::UDE, nn, pM, iter, loss, test_loss, training_dir; save = false)::Plots.Plot
+    @suppress begin #This is to stop complaints from the plotting backend
         # KAN prediction
         nn_h = [nn([i, j], pM, stM)[1][] for (i, j) in static_data.xy]
 
@@ -101,15 +135,12 @@ function save_training_frame_2d(static_data::StaticData_2D, model::UDE, nn, pM, 
         plt = plot(layout = (2, 2), size = (1600, 1200), titlefontsize = 12)
 
         # Top row: Interaction function surfaces
-        plot!(plt[1], static_data.x, static_data.y, static_data.true_h, st = :surface, 
-              title = "True Interaction h(x,y) compared with KAN (Iteration $iter)",
-              xlabel = "x", ylabel = "y", zlabel = "h(x,y)",
-              alpha = 0.4, c = :blues,
-              camera = (iter * static_data.spinning_rate, 30))
-        
-        plot!(plt[1], static_data.x, static_data.y, nn_h, st = :surface, c = :blues,
-              alpha = 0.4, label = "KAN")
-    
+        if isa(static_data, StaticData_2D)
+            plot_interaction_surface_2d(plt[1], static_data, nn_h, iter)
+        elseif isa(static_data, StaticData_1D)
+            plot_interaction_surface_1d(plt[1], static_data, nn_h, iter)
+        end
+
         # Top right: loss
         plot_loss(plt[2], loss, test_loss, iter)
 
@@ -126,44 +157,4 @@ function save_training_frame_2d(static_data::StaticData_2D, model::UDE, nn, pM, 
     
         return plt
     end
-end
-
-function save_training_frame_1d(static_data::StaticData_1D, model::UDE, nn, pM, iter, loss, test_loss, training_dir; save = false)
-    # KAN prediction
-    nn_h = [nn([i], pM, stM)[1][] for (i) in static_data.x]
-
-    # Get predictions for trajectories
-    UDE_sol = UniversalDiffEq.forecast(model, static_data.u0, model.times)
-    # Create 2x2 grid plot
-    plt = plot(layout = (2, 2), size = (1600, 1200), titlefontsize = 12)
-    
-    x = static_data.x
-    # Top row: Interaction function surfaces
-    plot!(plt[1], x, x .* (1 .- x),
-          title = "True Interaction: h(x) = x(1-x)/10",
-          xlabel = "x", ylabel = "y",
-          label = "True h(x)",
-          color = :black,
-          xlim = (-1, static_data.sol_max_x + 1))
-    plot!(plt[1], x, nn_h, 
-          title = "KAN Learned Interaction (Iteration $iter)",
-          label = "KAN(x,θ)",
-          color = :red,
-          linestyle = :dash)
-    vspan!(plt[1], [0,static_data.sol_max_x], alpha = 0.2, color = :gray, label = "State Space")
-
-    # Top right: loss
-    plot_loss(plt[2], loss, test_loss, iter)
-
-    # Bottom left: Phase plane
-    plot_phase_plane(plt[3], model, UDE_sol, static_data)
-    
-    # Bottom right: Time series comparison
-    plot_time_series(plt[4], model, UDE_sol, static_data)
-
-    if save
-        # Save figure with iteration number
-        savefig(plt, joinpath(training_dir, "frame_$(lpad(iter, 5, '0')).png"))
-    end
-    return plt
 end
