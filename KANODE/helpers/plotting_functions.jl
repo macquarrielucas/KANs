@@ -132,7 +132,7 @@ Plot the phase plane of the true solution and the KAN prediction.
 # Returns
 - `Nothing`: This function does not return any value.
 """
-function plot_phase_plane(plt, UDE_sol::Matrix{Float64}, static_data::Union{StaticData_1D, StaticData_2D})::Nothing
+function plot_phase_plane(plt, UDE_sol::Matrix, static_data::Union{StaticData_1D, StaticData_2D})::Nothing
     obs_x = static_data.observation_data[:,2]
     obs_y = static_data.observation_data[:,3]
     obs_time = UDE_sol[:,1]
@@ -170,7 +170,7 @@ Plots the time series data for both observed and predicted values.
 # Returns
 - `Nothing`: This function modifies the plot object in place and does not return any value.
 """
-function plot_time_series(plt, UDE_sol::Matrix{Float64}, static_data::Union{StaticData_1D, StaticData_2D})::Nothing
+function plot_time_series(plt, UDE_sol::Matrix, static_data::Union{StaticData_1D, StaticData_2D})::Nothing
     obs_times = static_data.observation_data[:,1]
     obs_x = static_data.observation_data[:,2]
     obs_y = static_data.observation_data[:,3]
@@ -280,7 +280,7 @@ Saves a training frame plot consisting of interaction function surfaces, loss, p
   - Bottom right: Time series comparison plot.
 - If `save` is `true`, the plot is saved in the specified `training_dir` with the filename format `frame_XXXXX.png`, where `XXXXX` is the zero-padded iteration number.
 """
-function save_training_frame(static_data, UDE_sol::Matrix{Float64}, nn, pM, iter::Int, loss::Vector{Real}, test_loss::Vector{Real}, training_dir::String; save = false)::Plots.Plot
+function save_training_frame(static_data, UDE_sol::Matrix, nn, pM, iter::Int, loss::Vector{Real}, test_loss::Vector{Real}, training_dir::String; save = false)::Plots.Plot
     #= Its assumed that UDEsol is a nx3 matrix where time is in the first column.
     The second and third columns are the predictions for the first and second species respectively.
     This should be changed in the future to account for any number of species/variables.
