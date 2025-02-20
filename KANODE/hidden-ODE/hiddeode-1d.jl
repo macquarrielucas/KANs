@@ -55,27 +55,27 @@ function lotka!(du,u,p,t)
 end
 
 #data generation parameters
-dt=0.1
-tspan_test = (0.0, 500)
-tspan_train=(0.0, 100)
-u0 = [1.0f0, 1.0f0]
+const dt=0.1
+const tspan_test = (0.0, 500)
+const tspan_train=(0.0, 100)
+const u0 = [1.0f0, 1.0f0]
 p_=[]
 prob = ODEProblem(lotka!, u0,tspan_test,p_)
 
 #generate training data, split into train/test
-solution = solve(prob, Tsit5(), abstol = 1e-12, reltol = 1e-12, saveat = dt, verbose = false)
+solution = solve(prob, Tsit5(), abstol = 1e-12, reltol = 1e-12, saveat = dt)
 # Calculate the index to split the solution into training and test sets based on the training time span
-end_index = Int64(floor(length(solution.t) * tspan_train[2] / tspan_test[2])) + 1
-t_test = solution.t #full dataset
-t_train=t_test[1:end_index] #training cut
-X = Array(solution)
-Xn = deepcopy(X) 
+const end_index = Int64(floor(length(solution.t) * tspan_train[2] / tspan_test[2])) + 1
+const t_test = solution.t #full dataset
+const t_train=t_test[1:end_index] #training cut
+const X = Array(solution)
+const Xn = deepcopy(X) 
 plot(solution)
 # Define KAN
 basis_func = rbf      # rbf, rswaf
 normalizer = softsign # sigmoid(_fast), tanh(_fast), softsign
-layer_width=5
-grid_size=10
+const layer_width=5
+const grid_size=10
 #This KAN looks like
 # psi(phi1(x) + phi2(x) + phi3(x) + ... + phi10(x))
 kan1 = Lux.Chain(
@@ -106,6 +106,19 @@ function predict_test(p)
     sol = solve(prob, Tsit5(), verbose = false);
 end
 
+"""
+    multiple_shooting_loss(p, pred_length::Int, times::Vector{<:AbstractFloat})::Real
+
+Calculate the multiple shooting loss for the given parameters.
+
+# Arguments
+- `p`: The parameters of the model.
+- `pred_length::Int`: The length of the prediction interval.
+- `times::Vector{<:AbstractFloat}`: The time points at which the solution is evaluated.
+
+# Returns
+- `Real`: The calculated loss value.
+"""
 function multiple_shooting_loss(p, pred_length::Int, times::Vector{<:AbstractFloat})::Real
 
     #Solve the ODE on the subinterval \tau_j to \tau_{j+1}
@@ -131,7 +144,20 @@ function multiple_shooting_loss(p, pred_length::Int, times::Vector{<:AbstractFlo
             inds = tau:size(times)[1]
             tspan = times[inds]
         end 
-        #The tau'th point of the data matrix
+"""
+    reg_loss(p, act_reg=1.0, entropy_reg=1.0)::Real
+
+Calculate the regularization loss for the given parameters.
+
+# Arguments
+- `p`: The parameters of the model.
+- `act_reg`: The regularization coefficient for the activation loss (default: 1.0).
+- `entropy_reg`: The regularization coefficient for the entropy loss (default: 1.0).
+
+# Returns
+- The total regularization loss as a `Real` number.
+"""
+function reg_loss(p, act_reg=1.0, entropy_reg=1.0)::Real
         u0 = Xn[:,tau]
         #The data matrix for the interval
         u1 = Xn[:,inds]
@@ -144,7 +170,7 @@ function multiple_shooting_loss(p, pred_length::Int, times::Vector{<:AbstractFlo
 end
 
 # LOSS FUNCTIONS
-function reg_loss(p, act_reg=1.0, entropy_reg=1.0)::Real
+function reg_loss(p, act_reg=1.0, entropy_reg=0.0)::Real
     l1_temp=(abs.(p))
     activation_loss=sum(l1_temp)
     #This entropy was not mentioned in the paper i believe,
@@ -160,7 +186,7 @@ function single_shooting_loss(p)::Real
     mean(abs2, Xn[:, 1:end_index].- predict(p)) 
 end
 #overall loss
-sparse_on = 0
+const sparse_on = 0
 function loss_train(p)::Real
     #loss_temp=single_shooting_loss(p)
     loss_temp=multiple_shooting_loss(p, 5, t_train)
@@ -180,11 +206,11 @@ end
 
 
 ##Plotting
-sol_max_x =maximum([x[1] for x in solution.u]) 
+const sol_max_x =maximum([x[1] for x in solution.u]) 
 #Bounds on the interaction plot
-x = range(-1, sol_max_x+1, length=40)
+const x = range(-1, sol_max_x+1, length=40)
 # True interaction function   
-true_h = [h(i) for i in x]
+const true_h = [h(i) for i in x]
 
 observation_data = [solution.t [u[1] for u in solution.u] [u[2] for u in solution.u]]
 static_data = StaticData_1D(observation_data, 
@@ -196,7 +222,7 @@ static_data = StaticData_1D(observation_data,
 
 
 
-SAVE_ON = false
+const SAVE_ON = false
 if SAVE_ON
     training_dir = find_frame_directory()
 else
@@ -204,7 +230,7 @@ else
 end
 #opt = Flux.Momentum(1e-3, 0.9)
 opt = Flux.Adam(1e-4)
-N_iter = 10000
+const N_iter = 10000
 iterator = ProgressBar(1:N_iter)
 
 #Stuff to track loss and test loss
