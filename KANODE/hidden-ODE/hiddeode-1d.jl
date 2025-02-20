@@ -55,10 +55,10 @@ function lotka!(du,u,p,t)
 end
 
 #data generation parameters
-const dt=0.1
-const tspan_test = (0.0, 500)
-const tspan_train=(0.0, 100)
-const u0 = [1.0f0, 1.0f0]
+const dt::Float32 =0.1f0
+const tspan_test::Tuple{Float32,Float32} = (0.0, 500)
+const tspan_train::Tuple{Float32,Float32} =(0.0, 100)
+const u0::Vector{Float32} = [1.0f0, 1.0f0]
 p_=[]
 prob = ODEProblem(lotka!, u0,tspan_test,p_)
 
@@ -72,15 +72,15 @@ const X = Array(solution)
 const Xn = deepcopy(X) 
 plot(solution)
 # Define KAN
-basis_func = rbf      # rbf, rswaf
-normalizer = softsign # sigmoid(_fast), tanh(_fast), softsign
+basis_func = KolmogorovArnold.rbf      # rbf, rswaf
+normalizer = KolmogorovArnold.softsign # sigmoid(_fast), tanh(_fast), softsign
 const layer_width=5
 const grid_size=10
 #This KAN looks like
 # psi(phi1(x) + phi2(x) + phi3(x) + ... + phi10(x))
 kan1 = Lux.Chain(
-    KDense( 1, layer_width, grid_size; use_base_act = true, basis_func, normalizer),
-    KDense(layer_width,  1, grid_size; use_base_act = true, basis_func, normalizer),
+    KolmogorovArnold.KDense( 1, layer_width, grid_size; use_base_act = true, basis_func, normalizer),
+    KolmogorovArnold.KDense(layer_width,  1, grid_size; use_base_act = true, basis_func, normalizer),
 )
 pM , stM  = Lux.setup(rng, kan1)
 pM_data     = getdata(ComponentArray(pM))
@@ -96,13 +96,13 @@ function kanode!(du, u, p, t)
 end
 
 # PREDICTION FUNCTION
-function predict(p)
-    prob = ODEProblem(kanode!, u0, tspan_train,p, saveat=dt)
+function predict(model::Function,p)
+    prob = ODEProblem(model, u0, tspan_train,p, saveat=dt)
     sol = solve(prob, Tsit5(), verbose = false);
 end
 #Prediction function over the test set.
-function predict_test(p)
-    prob = ODEProblem(kanode!, u0, tspan_test,p, saveat=dt)
+function predict_test(model::Function, p)
+    prob = ODEProblem(model, u0, tspan_test,p, saveat=dt)
     sol = solve(prob, Tsit5(), verbose = false);
 end
 
@@ -112,6 +112,7 @@ end
 Calculate the multiple shooting loss for the given parameters.
 
 # Arguments
+- `UDE`: The universal differential equation model. Should be a function
 - `p`: The parameters of the model.
 - `pred_length::Int`: The length of the prediction interval.
 - `times::Vector{<:AbstractFloat}`: The time points at which the solution is evaluated.
@@ -119,12 +120,12 @@ Calculate the multiple shooting loss for the given parameters.
 # Returns
 - `Real`: The calculated loss value.
 """
-function multiple_shooting_loss(p, pred_length::Int, times::Vector{<:AbstractFloat})::Real
+function multiple_shooting_loss(model::Function, p, pred_length::Int, times::Vector{<:AbstractFloat})::Real
 
     #Solve the ODE on the subinterval \tau_j to \tau_{j+1}
-    function predict_mini(u,tsteps,parameters)
+    function predict_mini(model::Function, u,tsteps,parameters)
         tspan =  (tsteps[1],tsteps[end])  # Tsit5()#ForwardDiffSensitivity()
-        prob=ODEProblem(kanode!, u, tspan, parameters, saveat=tsteps)
+        prob=ODEProblem(model, u, tspan, parameters, saveat=tsteps)
         sol = OrdinaryDiffEq.solve(prob, abstol=1e-6, reltol=1e-6)
         X = Array(sol)
         return X
@@ -143,25 +144,12 @@ function multiple_shooting_loss(p, pred_length::Int, times::Vector{<:AbstractFlo
         else
             inds = tau:size(times)[1]
             tspan = times[inds]
-        end 
-"""
-    reg_loss(p, act_reg=1.0, entropy_reg=1.0)::Real
-
-Calculate the regularization loss for the given parameters.
-
-# Arguments
-- `p`: The parameters of the model.
-- `act_reg`: The regularization coefficient for the activation loss (default: 1.0).
-- `entropy_reg`: The regularization coefficient for the entropy loss (default: 1.0).
-
-# Returns
-- The total regularization loss as a `Real` number.
-"""
-function reg_loss(p, act_reg=1.0, entropy_reg=1.0)::Real
+        end
+        #The initial point of the interval
         u0 = Xn[:,tau]
         #The data matrix for the interval
         u1 = Xn[:,inds]
-        u1hat = predict_mini(u0,tspan,p)
+        u1hat = predict_mini(model,u0,tspan,p)
         for i in 1:length(inds) 
             loss += sum((u1[:,i].-u1hat[:,i]).^2)/length(Xn)
         end 
@@ -182,26 +170,22 @@ function reg_loss(p, act_reg=1.0, entropy_reg=0.0)::Real
 end
 
 
-function single_shooting_loss(p)::Real
-    mean(abs2, Xn[:, 1:end_index].- predict(p)) 
+function single_shooting_loss(model::Function, p)::Real
+    mean(abs2, Xn[:, 1:end_index].- predict(model, p)) 
 end
 #overall loss
 const sparse_on = 0
-function loss_train(p)::Real
+function loss_train(model::Function, p)::Real
     #loss_temp=single_shooting_loss(p)
-    loss_temp=multiple_shooting_loss(p, 5, t_train)
+    loss_temp=multiple_shooting_loss(model, p, 5, t_train)
     if sparse_on==1
         loss_temp+=reg_loss(p, 5e-4, 0) #if we have sparsity enabled, add the reg loss
     end
     return loss_temp
 end
-#=
-function loss_train(p)
-    mean(abs2, Xn[:, 1:end_index] .- Array(predict(p)))
-end
-=#
-function loss_test(p)::Real
-    mean(abs2, Xn .- Array(predict_test(p)))
+
+function loss_test(model::Function, p)::Real
+    mean(abs2, Xn .- Array(predict_test(model,p)))
 end
 
 
@@ -230,43 +214,47 @@ else
 end
 #opt = Flux.Momentum(1e-3, 0.9)
 opt = Flux.Adam(1e-4)
-const N_iter = 10000
+const N_iter = 3
 iterator = ProgressBar(1:N_iter)
 
 #Stuff to track loss and test loss
 l = Real[]
 l_test=Real[]
 p_list = []
-@time for i in iterator
-    # GRADIENT COMPUTATION
-    grad = Zygote.gradient(loss_train, p)[1]
 
-    # UPDATE WITH ADAM OPTIMIZER
-    update!(opt, p, grad)
+function main()
+    @time for i in iterator
+        # GRADIENT COMPUTATION
+        @time grad = Zygote.gradient(p -> loss_train(kanode!, p), p)[1]
 
-
-    # CALLBACK
-    loss_curr=deepcopy(loss_train(p))
-    loss_curr_test=deepcopy(loss_test(p))
-    set_description(iterator, string(
-        "Iter:", i, 
-        "| Loss:", @sprintf("%.2f", loss_curr), 
-        "| Test_Loss:", @sprintf("%.2f", loss_curr_test), 
-        "|"
-    ))
-
-    append!(l, loss_curr)
-    append!(l_test, loss_curr_test)
-    #append!(p_list, [deepcopy(p)])
+        # UPDATE WITH ADAM OPTIMIZER
+        update!(opt, p, grad)
 
 
-    if i%10 == 0 || i==1
-        #Turn the data into an nx3 matrix for the plotting function
-        UDE_forecast = predict_test(p)
-        UDE_sol=[UDE_forecast.t [u[1] for u in UDE_forecast.u] [u[2] for u in UDE_forecast.u]]
-        print(training_dir)
-        @time display(save_training_frame(static_data, UDE_sol, kan1,p,i, l,l_test,training_dir; save=SAVE_ON))
+        # CALLBACK
+        loss_curr=deepcopy(loss_train(kanode!, p))
+        loss_curr_test=deepcopy(loss_test(kanode!, p))
+        set_description(iterator, string(
+            "Iter:", i, 
+            "| Loss:", @sprintf("%.2f", loss_curr), 
+            "| Test_Loss:", @sprintf("%.2f", loss_curr_test), 
+            "|"
+        ))
+
+        append!(l, loss_curr)
+        append!(l_test, loss_curr_test)
+        #append!(p_list, [deepcopy(p)])
+
+
+        if i%10 == 0 || i==1
+            #Turn the data into an nx3 matrix for the plotting function
+            UDE_forecast = predict_test(kanode!, p)
+            UDE_sol=[UDE_forecast.t [u[1] for u in UDE_forecast.u] [u[2] for u in UDE_forecast.u]]
+            print(training_dir)
+            @time display(save_training_frame(static_data, UDE_sol, kan1,p,i, l,l_test,training_dir; save=SAVE_ON))
+        end
+        # SAVE
+        #callback(i)
     end
-    # SAVE
-    #callback(i)
 end
+@profview main()
