@@ -20,7 +20,7 @@ const COLORS = (
     #etc 
     training_region = :gray
 )
-dir = @__DIR__
+#
 
 """
 Structure for passing data for the 2d plot which doesn't need to be recalculated
@@ -58,7 +58,7 @@ Creates a new directory for storing training frames. The function ensures that t
 # Returns
 - `String`: The path to the newly created or existing empty directory.
 """
-function find_frame_directory()::String 
+function find_frame_directory(dir::String)::String 
     # Create directories if needed
     folder_count = 0
     training_dir = joinpath(dir, "tests", "training_frames_$folder_count")

@@ -132,9 +132,11 @@ function main()
         kanode!(kan1, du, u, p, stM, t)
     end
                             
-    SAVE_ON::Bool = false
+    SAVE_ON::Bool = true
     if SAVE_ON
-        training_dir = find_frame_directory()
+        dir = @__DIR__
+        training_dir = find_frame_directory(dir)
+        println("Saving frames to: ", training_dir)
     else
         training_dir=""
     end
