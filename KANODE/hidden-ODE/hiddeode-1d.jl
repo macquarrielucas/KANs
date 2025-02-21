@@ -4,26 +4,16 @@ using ChainRulesCore
 using ComponentArrays
 using ComponentArrays: getaxes
 using ComponentArrays: getdata
-#using ConcreteStructs
 using DiffEqFlux
 using Flux
 using Flux: mae, mean, update!
-#using ForwardDiff
-#using LinearAlgebra
-#using MAT
-#using ModelingToolkit
-#using NNlib
-#using Optim
-#using Optimisers
 using OrdinaryDiffEq
 using Plots
 using Printf
 using ProgressBars
 using Random
-#using WeightInitializers
 using Zygote
 using Lux
-#pythonplot()
 #My packages and functions
 include("../helpers/plotting_functions.jl")
 include("loss_functions.jl") #this is not implemented yet
@@ -115,7 +105,7 @@ function main()
 
     println("Defining static data...")
     ##Plotting
-    sol_max_x =maximum([x[1] for x in Xn_train])  #Bounds on the interaction plot
+    sol_max_x =maximum(Xn_train[1,:])  #Bounds on the interaction plot
     x = range(-1, sol_max_x+1, length=40)
     true_h = [h(i) for i in x]  # True interaction function   
     tspan_train = (t_train[1], t_train[end])
@@ -142,7 +132,7 @@ function main()
     end
     #opt = Flux.Momentum(1e-3, 0.9)
     opt = Flux.Adam(1e-4)
-    N_iter::Int = 1000
+    N_iter::Int = 10000
     iterator = ProgressBar(1:N_iter)
 
     #Stuff to track loss and test loss
@@ -173,7 +163,8 @@ function main()
         ))
         if i%10 == 0 || i==1
             #Turn the data into an nx3 matrix for the plotting function
-            UDE_forecast = multiple_shooting_predict(UDE!, p, 3, t_test, Xn_test)
+            #UDE_forecast = multiple_shooting_predict(UDE!, p, 10, t_test, Xn_test)
+            UDE_forecast = single_shooting_predict(UDE!, p, Xn_test[:,1], t_test)
             #UDE_forecast = single_shooting_predict(UDE!, p,u0, t_test)
             UDE_sol=[t_test UDE_forecast']
             #println("Plotting...")

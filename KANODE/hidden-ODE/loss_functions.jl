@@ -127,7 +127,8 @@ end
 """
 function loss_train(model::Function, p,times::Vector{<:AbstractFloat}, data::Matrix{Float32}; sparse_on::Int=0)::Real
     #loss_temp=single_shooting_loss(p)
-    loss_temp=multiple_shooting_loss(model, p, 5, times,data)
+    #loss_temp=multiple_shooting_loss(model, p, 5, times,data)
+    loss_temp=single_shooting_loss(model, p, times,data)
     if sparse_on==1
         loss_temp+=reg_loss(p, 5e-4, 0) #if we have sparsity enabled, add the reg loss
     end
