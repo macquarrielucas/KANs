@@ -9,8 +9,7 @@ using Optimization, Optimisers
 
 include("../Lotka-Volterra/src/KolmogorovArnold.jl")
 using .KolmogorovArnold
-include("plotting_functions.jl")
-
+include("../helpers/plotting_functions.jl")
 
 function h(x,y)
     0.5*x*y
@@ -129,6 +128,7 @@ print("Starting Training")
     #print("Time to print loss")
     set_description(iterator, string("Iter:", i, "| Loss:", @sprintf("%.2f", loss_curr), "|"))
     #println("Time to render graphics")
+    println(model.parameters.uhat[1:5])
     #UniversalDiffEq.plot_state_estimates(model)
     @time display(save_training_frame_2d(static_data, model, kan1, pM, i*iters_per_loop,l,l_test, training_dir; save=SAVE_ON))
 end

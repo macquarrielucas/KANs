@@ -9,9 +9,11 @@ using Optimization, Optimisers
 
 include("../Lotka-Volterra/src/KolmogorovArnold.jl")
 using .KolmogorovArnold
-include("plotting_functions.jl")
+include("../helpers/plotting_functions.jl")
 
-
+###################
+##Data generation##
+###################
 function h(x,K)
     x*(1-x/K)
 end
@@ -37,6 +39,10 @@ u2 = solution[2, :]  # Second variable (e.g., predator population)
 # Create a DataFrame
 data = DataFrame(time=times, prey=u1, predator=u2)
 
+###################
+## KAN Definition ##
+###################
+
 println("Setting up KAN")
 ##Model definition
 basis_func = KolmogorovArnold.rbf      # rbf, rswaf
@@ -53,13 +59,18 @@ rng = Random.default_rng()
 Random.seed!(rng, 3)
 
 pM, stM = Lux.setup(rng,kan1)
+
+####################
+## UDE Definition ##
+####################
+
 # Define the UDE
 function lotka_voltera!(du,u,p,t)
     C, _ = kan1([u[1]],pM,stM)
     du[1] = 1.0*C[1] -  0.5*u[1]*u[2]
     du[2] =  0.5*u[1]*u[2] - 1.0*u[2]
 end
-#=
+#= UDE with parameters
 function lotka_voltera!(du,u,p,t)
     C, _ = kan1([u[1]],pM,stM)
     du[1] = p.r*C[1] -  0.5*u[1]*u[2]
@@ -67,7 +78,13 @@ function lotka_voltera!(du,u,p,t)
 end
 =#
 initial_parameters = (NN=pM)#, r=2.0, m=0.5, K=10.0)
-model = CustomDerivatives(data, lotka_voltera!, initial_parameters)
+model = CustomDerivatives(data, 
+                        lotka_voltera!, 
+                        initial_parameters;
+                        proc_weight = 1.0,
+                        obs_weight = 0.0,
+                        reg_weight = 0.0,
+                        )
 ##Plotting
 #Bounds on the interaction plot
 x = range(0, 3, length=20)
@@ -80,7 +97,7 @@ static_data = StaticData_1D(x,true_h,tspan_train, u0, spinning_rate, sol_max_x)
 
 
 ##Training
-N_iter = 100
+N_iter = 10000
 iterator = ProgressBar(1:N_iter)
 iters_per_loop = 5
 l = []
@@ -114,7 +131,7 @@ print("Starting Training")
     # CALLBACK
     #print("Time to print loss")
     set_description(iterator, string("Iter:", i, "| Loss:", @sprintf("%.2f", loss_curr), "|"))
-    print(pM)
+    println(model.parameters.uhat[1:5])
     #println("Time to render graphics")
     #UniversalDiffEq.plot_state_estimates(model)
     @time display(save_training_frame_1d(static_data, model, kan1, pM, i*iters_per_loop,l,l_test, training_dir; save=SAVE_ON))
