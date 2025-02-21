@@ -4,3 +4,5 @@ KANODE/test
 KANODE/hidden-ODE/test
 KANODE/hidden-ODE/render1.mp4
 KANODE/UniversalDiffEq/frames
+KANODE/UniversalDiffEq/tests
+KANODE/hidden-ODE/tests/
