@@ -1,10 +1,15 @@
 
 # PREDICTION FUNCTION
-function single_shooting_predict(model::Function,p, u0::Vector{Float32},times::Vector{Float32})
-    tspan = (times[1],times[end])
+function single_shooting_predict(model::Function, p, u0::Vector{Float32}, times::Vector{Float32})
+    tspan = (times[1], times[end])
     prob = ODEProblem(model, u0, tspan, p, saveat=times)
-    sol = solve(prob, Tsit5(), verbose = false);
+    sol = solve(prob, Tsit5(), verbose = false)
     X = Array(sol)
+    
+    if size(X, 2) != length(times)
+        @warn "The number of columns in times does not match the number of columns in X."
+    end
+    
     return X
 end
 
@@ -96,9 +101,18 @@ function multiple_shooting_loss(model::Function, p, pred_length::Int, times::Vec
                                             data) )
 end
 function single_shooting_loss(model::Function, p, times::Vector{Float32}, data::Matrix{Float32})::Real
-    mean(abs2, data.- single_shooting_predict(model, p, 
-                                            data[:,1], #Initial conditions
-                                            times) )
+    try
+        mean(abs2, data.- single_shooting_predict(model, p, 
+                                                data[:,1], #Initial conditions
+                                                times) )
+    catch e
+        if isa(e, DimensionMismatch)
+            @error "Dimension mismatch error: $(e). single_shooting_predict could be returning a shortened solution array due to solution instability."
+            return Inf
+        else
+            rethrow(e)
+        end
+    end
 end
 # LOSS FUNCTIONS
 function reg_loss(p, act_reg=1.0, entropy_reg=0.0)::Real

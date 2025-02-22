@@ -26,7 +26,7 @@ const COLORS = (
 Structure for passing data for the 2d plot which doesn't need to be recalculated
 """
 struct StaticData_2D
-    observation_data::Matrix #This contains the observations/testing data
+    observation_data::Matrix #This contains the observations/testing data. 3xN matrix with time, x, y
     x::StepRangeLen # The x range that the interaction function will be plotted over
     y::StepRangeLen # The y range that the interaction function will be plotted over
     xy::Matrix{Tuple{Float64,Float64}} # The meshgrid of x and y values (should coincide with the ranges of x and y)
@@ -209,11 +209,13 @@ function plot_interaction_surface_2d(plt, static_data::StaticData_2D, nn_h, iter
           title = "True Interaction h(x,y) compared with KAN (Iteration $iter)",
           xlabel = "x", ylabel = "y", zlabel = "h(x,y)",
           alpha = 0.4, c = :blues,
-          camera = (iter * static_data.spinning_rate, 30))
+          camera = (iter * static_data.spinning_rate, 30),
+          label = "True h(x,y)", colorbar = false)
     
-    plot!(plt, static_data.x, static_data.y, nn_h, st = :surface, c = :blues,
-          alpha = 0.4, label = "KAN")
-    return Nothing
+    plot!(plt, static_data.x, static_data.y, nn_h, st = :surface, c = :reds,
+          alpha = 0.6, label = "KAN", colorbar = false)
+    plot!(plt, legend=:topright)
+    return nothing
 end
 """
     plot_interaction_surface_1d(plt, static_data::StaticData_1D, nn_h, iter)
