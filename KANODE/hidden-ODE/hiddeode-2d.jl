@@ -87,6 +87,16 @@ function define_KAN(rng)
     return kan, pM, stM
 end
 
+function get_training_dir(SAVE_ON::Bool)
+    if SAVE_ON
+        dir = @__DIR__
+        training_dir = find_frame_directory(dir)
+        println("Saving frames to: ", training_dir)
+    else
+        training_dir=""
+    end
+    return training_dir
+end 
 function main()
     #Random
     rng = Random.default_rng()
@@ -128,18 +138,28 @@ function main()
     end
                             
     SAVE_ON::Bool = false
-    if SAVE_ON
-        dir = @__DIR__
-        training_dir = find_frame_directory(dir)
-        println("Saving frames to: ", training_dir)
-    else
-        training_dir=""
-    end
-    #opt = Flux.Momentum(1e-3, 0.9)
-    opt = Flux.Adam(1e-4)
-    N_iter::Int = 10000
+    training_dir = get_training_dir(SAVE_ON)
+    opt = Flux.Momentum( 1e-3, 0.9)
+    #opt = Flux.Adam(1e-4)
+    N_iter::Int = 10
     iterator = ProgressBar(1:N_iter)
 
+    hyperparameter_string = [
+        "N_iter: $N_iter",
+        "layer_width: 5",
+        "grid_size: 5",
+        "dt: 0.1",
+        "tspan_train: $(t_train[1]) to $(t_train[end])",
+        "tspan_test: $(t_test[1]) to $(t_test[end])",
+        "u0: $(u0[1]) $(u0[2])",
+        "Training iters: $N_iter",
+        "optimizer: Momentum(1e-3, 0.9)",
+        "basis_func: rbf",
+        "normalizer: softsign",
+        "spinning_rate: 0.2",
+        "Loss type: multiple_shooting_loss",
+        "SAVE_ON: $SAVE_ON"
+    ]
     #Stuff to track loss and test loss
     l = Real[]
     l_test=Real[]
@@ -168,12 +188,12 @@ function main()
         ))
         if i%10 == 0 || i==1
             #Turn the data into an nx3 matrix for the plotting function
-            #UDE_forecast = multiple_shooting_predict(UDE!, p, 10, t_test, Xn_test)
-            UDE_forecast = single_shooting_predict(UDE!, p, Xn_test[:,1], t_test)
+            UDE_forecast = multiple_shooting_predict(UDE!, p, 10, t_test, Xn_test)
+            #UDE_forecast = single_shooting_predict(UDE!, p, Xn_test[:,1], t_test)
             #UDE_forecast = single_shooting_predict(UDE!, p,u0, t_test)
             UDE_sol=[t_test UDE_forecast']
             #println("Plotting...")
-            display(save_training_frame(static_data, UDE_sol, kan1,p, stM, i, l,l_test,training_dir; save=SAVE_ON))
+            display(save_training_frame(static_data, UDE_sol, kan1,p, stM, i, l,l_test,hyperparameter_string, training_dir, ; save=SAVE_ON))
         end
     end
 end

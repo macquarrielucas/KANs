@@ -78,7 +78,7 @@ function find_frame_directory(dir::String)::String
         training_dir = joinpath(dir, "tests", "training_frames_$folder_count")
     end
     if !is_empty
-        print("Making directory ", string(training_dir))
+        println("Making directory ", string(training_dir))
         mkdir(training_dir)
     end
     training_dir
@@ -251,6 +251,26 @@ function plot_interaction_surface_1d(plt, static_data::StaticData_1D, nn_h, iter
     vspan!(plt, [0,static_data.sol_max_x], alpha = 0.2, color = :gray, label = "State Space")
 end
 
+
+"""
+    plot_hyperparameters(plt, hyperparams::Vector{String})::Nothing
+
+Plots the hyperparameters in a text box.
+
+# Arguments
+- `plt`: The plot object to which the hyperparameters will be added.
+- `hyperparams::Vector{String}`: A vector of strings containing the hyperparameters.
+
+# Returns
+- `Nothing`: This function does not return any value.
+"""
+function plot_hyperparameters(plt, hyperparams::Vector{String})::Nothing
+    text = join(hyperparams, "\n")
+    plot!(plt, title = "Hyperparameters", xlim = (0, 1), ylim = (0, 1), showaxis = false)
+    annotate!(plt, 0.5, 0.5, text)
+    return nothing
+end
+
 ####################
 ## Main Plotting ##
 ####################
@@ -282,7 +302,7 @@ Saves a training frame plot consisting of interaction function surfaces, loss, p
   - Bottom right: Time series comparison plot.
 - If `save` is `true`, the plot is saved in the specified `training_dir` with the filename format `frame_XXXXX.png`, where `XXXXX` is the zero-padded iteration number.
 """
-function save_training_frame(static_data::Union{StaticData_1D, StaticData_2D}, UDE_sol::Matrix, nn, pM, stM, iter::Int, loss::Vector{Real}, test_loss::Vector{Real}, training_dir::String; save = false)::Plots.Plot
+function save_training_frame(static_data::Union{StaticData_1D, StaticData_2D}, UDE_sol::Matrix, nn, pM, stM, iter::Int, loss::Vector{Real}, test_loss::Vector{Real}, hyperparams::Vector{String},  training_dir::String; save = false)::Plots.Plot
     #= Its assumed that UDEsol is a nx3 matrix where time is in the first column.
     The second and third columns are the predictions for the first and second species respectively.
     This should be changed in the future to account for any number of species/variables.
@@ -290,26 +310,31 @@ function save_training_frame(static_data::Union{StaticData_1D, StaticData_2D}, U
     @suppress begin #This is to stop complaints from the plotting backend
         # KAN prediction
 
-        # Create 2x2 grid plot
-        plt = plot(layout = (2, 2), size = (1600, 1200), titlefontsize = 12)
+        l = @layout [[a b c];
+                     [d{0.3w} e{0.7w}]]
+        plt = plot(layout = l, size = (1600, 1200), titlefontsize = 12)
 
-        # Top row: Interaction function surfaces
-        if isa(static_data, StaticData_2D)
-            nn_h = [nn([i, j], pM, stM)[1][] for (i, j) in static_data.xy]
-            plot_interaction_surface_2d(plt[1], static_data, nn_h, iter)
-        elseif isa(static_data, StaticData_1D)
-            nn_h = [nn([i], pM, stM)[1][] for i in static_data.x]
-            plot_interaction_surface_1d(plt[1], static_data, nn_h, iter)
-        end
+
 
         # Top right: loss
-        plot_loss(plt[2], loss, test_loss, iter)
+        plot_loss(plt[1], loss, test_loss, iter)
+
+        if isa(static_data, StaticData_2D)
+            nn_h = [nn([i, j], pM, stM)[1][] for (i, j) in static_data.xy]
+            plot_interaction_surface_2d(plt[2], static_data, nn_h, iter)
+        elseif isa(static_data, StaticData_1D)
+            nn_h = [nn([i], pM, stM)[1][] for i in static_data.x]
+            plot_interaction_surface_1d(plt[2], static_data, nn_h, iter)
+        end
+        
+        plot_hyperparameters(plt[3], hyperparams::Vector{String})
 
         # Bottom left: Phase plane
-        plot_phase_plane(plt[3], UDE_sol, static_data)
+        plot_phase_plane(plt[4], UDE_sol, static_data)
     
         # Bottom right: Time series comparison
-        plot_time_series(plt[4], UDE_sol, static_data)
+        plot_time_series(plt[5], UDE_sol, static_data)
+
 
         if save
             # Save figure with iteration number
