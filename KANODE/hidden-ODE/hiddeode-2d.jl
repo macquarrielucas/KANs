@@ -16,6 +16,7 @@ using Zygote
 using Lux
 #My packages and functions
 include("../helpers/plotting_functions.jl")
+include("../helpers/utils.jl")
 include("loss_functions.jl") #this is not implemented yet
 # KAN PACKAGE LOAD
 include("../Lotka-Volterra/src/KolmogorovArnold.jl")
@@ -27,21 +28,21 @@ function h(x,y)
 end
 
 function lotka!(du,u,p,t) 
-    du[1] = u[1]*(1-u[1])- h(u[1],u[2])
+    du[1] = u[1]*(1-u[1]/5)- h(u[1],u[2])
     du[2] = h(u[1],u[2]) - u[2]
 end
 
 function kanode!(model, du, u, p, stM, t)
     kan1_(x) = model(x, p, stM)[1][1]
-    du[1] =  u[1]*(1-u[1]) - kan1_(u)
+    du[1] =  u[1]*(1-u[1]/5) - kan1_(u)
     du[2] = kan1_(u) - u[2]
 end
 
 function generate_data()
     #data generation parameters
-    dt::Float32 =0.1f0
-    tspan_test::Tuple{Float32,Float32} = (0.0, 500)
-    tspan_train::Tuple{Float32,Float32} =(0.0, 100)
+    dt::Float32 =0.01f0
+    tspan_test::Tuple{Float32,Float32} = (0.0, 100)
+    tspan_train::Tuple{Float32,Float32} =(0.0, 10)
     u0::Vector{Float32} = [1.0f0, 1.0f0]
     p_=Float32[] #These can only hold an array of parameters which are floats.
     prob = ODEProblem(lotka!, u0,tspan_test,p_)
@@ -75,7 +76,7 @@ function define_KAN(rng)
     # Define KAN
     basis_func = KolmogorovArnold.rbf      # rbf, rswaf
     normalizer = KolmogorovArnold.softsign # sigmoid(_fast), tanh(_fast), softsign
-    layer_width::Int=5
+    layer_width::Int=3
     grid_size::Int=5
     #This KAN looks like
     # psi(normalizer(phi1(normalizer(x)) + phi2(normalizer(x)) + phi3(normalizer(x)) + ... + phi10(normalizer(x))))
@@ -87,16 +88,6 @@ function define_KAN(rng)
     return kan, pM, stM
 end
 
-function get_training_dir(SAVE_ON::Bool)
-    if SAVE_ON
-        dir = @__DIR__
-        training_dir = find_frame_directory(dir)
-        println("Saving frames to: ", training_dir)
-    else
-        training_dir=""
-    end
-    return training_dir
-end 
 function main()
     #Random
     rng = Random.default_rng()
@@ -115,12 +106,13 @@ function main()
     ##DATA FOR PLOTTING
     # Create grid for interaction function visualization
     observation_data = [t_test Xn_test'] #This is the data that we will be comparing to
-    x = range(0, 1, length=20)
-    y = range(0, 1, length=20)
+    x = range(0, 3, length=20)
+    y = range(0, 3, length=20)
     xy = [(i,j) for i in x, j in y]
     # True interaction function   
     tspan_train = (t_train[1], t_train[end])
     true_h = [h(i,j) for (i,j) in xy]
+    obs_curve = [h(i,j) for (i,j) in zip(Xn_test[1,:], Xn_test[2,:])]
     spinning_rate = 0.2
     static_data = StaticData_2D(
                     observation_data,
@@ -130,35 +122,41 @@ function main()
                     true_h,
                     tspan_train,
                     u0,
-                    spinning_rate)
+                    spinning_rate,
+                    obs_curve)
 
     #This is needed to pass onto training step
     function UDE!(du,u,p,t)
         kanode!(kan1, du, u, p, stM, t)
     end
-                            
-    SAVE_ON::Bool = false
+            
+    ##Settings
+    SAVE_ON::Bool = true
     training_dir = get_training_dir(SAVE_ON)
-    opt = Flux.Momentum( 1e-3, 0.9)
-    #opt = Flux.Adam(1e-4)
-    N_iter::Int = 10
+    #opt = Flux.Momentum( 1e-3, 0.9)
+    opt = Flux.Adam(1e-4)
+    N_iter::Int = 100000
     iterator = ProgressBar(1:N_iter)
-
+    pred_length::Int = 100
+    #Things to include in the plot
     hyperparameter_string = [
         "N_iter: $N_iter",
         "layer_width: 5",
         "grid_size: 5",
-        "dt: 0.1",
+        "dt: 0.01",
         "tspan_train: $(t_train[1]) to $(t_train[end])",
         "tspan_test: $(t_test[1]) to $(t_test[end])",
         "u0: $(u0[1]) $(u0[2])",
         "Training iters: $N_iter",
-        "optimizer: Momentum(1e-3, 0.9)",
+        "optimizer: Adam(1e-4)",
         "basis_func: rbf",
         "normalizer: softsign",
         "spinning_rate: 0.2",
         "Loss type: multiple_shooting_loss",
-        "SAVE_ON: $SAVE_ON"
+        "Prediction length for multple shooting: $pred_length",
+        "SAVE_ON: $SAVE_ON",
+        "ODE: x' =  x(1-x/5) - h(x,y) \n y' = h(x,y)-y",
+        "h(x,y)=0.5xy"
     ]
     #Stuff to track loss and test loss
     l = Real[]
@@ -169,14 +167,14 @@ function main()
         # GRADIENT COMPUTATION
         #println("Computing gradient... ($i)")
         #I think theres a way to get the loss in the call, instead of calling it again for loss_curr
-        grad = Zygote.gradient(p -> loss_train(UDE!, p, t_train, Xn_train), p)[1]
+        grad = Zygote.gradient(p -> loss_train(UDE!, p, t_train, Xn_train; pred_length=pred_length), p)[1]
 
         # UPDATE WITH ADAM OPTIMIZER
         update!(opt, p, grad)
 
         #Add loss to the lists 
-        append!(l, loss_train(UDE!, p,t_train, Xn_train))
-        append!(l_test, loss_train(UDE!, p, t_test, Xn_test))
+        append!(l, loss_train(UDE!, p,t_train, Xn_train;pred_length= pred_length))
+        append!(l_test, loss_train(UDE!, p, t_test, Xn_test;pred_length= pred_length))
         #append!(p_list, [deepcopy(p)])
 
         #Update visuals
@@ -188,7 +186,7 @@ function main()
         ))
         if i%10 == 0 || i==1
             #Turn the data into an nx3 matrix for the plotting function
-            UDE_forecast = multiple_shooting_predict(UDE!, p, 10, t_test, Xn_test)
+            UDE_forecast = multiple_shooting_predict(UDE!, p, pred_length, t_test, Xn_test)
             #UDE_forecast = single_shooting_predict(UDE!, p, Xn_test[:,1], t_test)
             #UDE_forecast = single_shooting_predict(UDE!, p,u0, t_test)
             UDE_sol=[t_test UDE_forecast']

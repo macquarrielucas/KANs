@@ -34,6 +34,7 @@ struct StaticData_2D
     tspan_train::Tuple{Float32,Float32} #The time span of the training data
     u0::Vector{Float32} #Initial conditions for the system
     spinning_rate::Float32 #The rate at which the plot spins
+    obs_curve::Vector{Float64} #The curve of the true interaction function over the observed data
 end
 
 """
@@ -205,6 +206,8 @@ Plots the interaction surface in 2D using the provided plotting object and data.
 This function plots the true interaction surface `h(x,y)` and the predicted interaction surface from the neural network on the same plot. The true interaction surface is plotted with a transparency of 0.4 and a blue color scheme. The camera angle is adjusted based on the iteration number to create a spinning effect.
 """
 function plot_interaction_surface_2d(plt, static_data::StaticData_2D, nn_h, iter)::Nothing
+    #=
+    # Plot the true interaction surface
     plot!(plt, static_data.x, static_data.y, static_data.true_h, st = :surface, 
           title = "True Interaction h(x,y) compared with KAN (Iteration $iter)",
           xlabel = "x", ylabel = "y", zlabel = "h(x,y)",
@@ -212,9 +215,20 @@ function plot_interaction_surface_2d(plt, static_data::StaticData_2D, nn_h, iter
           camera = (iter * static_data.spinning_rate, 30),
           label = "True h(x,y)", colorbar = false)
     
+    # Plot the predicted interaction surface
     plot!(plt, static_data.x, static_data.y, nn_h, st = :surface, c = :reds,
           alpha = 0.6, label = "KAN", colorbar = false)
-    plot!(plt, legend=:topright)
+    =#
+    plot!(plt, static_data.x, static_data.y, abs.(nn_h-static_data.true_h), st = :surface, c = :reds,
+            alpha = 0.6, label = "|KAN(x,y) - h(x,y)|", colorbar = false)
+    # Plot the observation data as vertical lines
+    obs_x = static_data.observation_data[:, 2]
+    obs_y = static_data.observation_data[:, 3]
+    #vspan!(plt, obs_x, obsy, alpha = 0.2, color = :gray, label = "Observation Data")
+    plot!(plt, obs_x, obs_y, zeros(length(obs_x)), st = :path, label = "Observation Data", color = :black)
+    
+    # Add legend
+    plot!(plt, legend = :topright)
     return nothing
 end
 """

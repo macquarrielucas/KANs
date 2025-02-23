@@ -32,7 +32,7 @@ end
 function multiple_shooting_predict(model::Function,p,pred_length::Int, times::Vector{Float32}, data::Matrix{Float32})
 
     #Solve the ODE on the subinterval \tau_j to \tau_{j+1}
-    function predict_mini(model::Function, u,tsteps,parameters)
+    function predict_mini(model::Function, u::Vector{Float32},tsteps::Vector{Float32},parameters)
         tspan =  (tsteps[1],tsteps[end])  # Tsit5()#ForwardDiffSensitivity()
         prob=ODEProblem(model, u, tspan, parameters, saveat=tsteps)
         sol = OrdinaryDiffEq.solve(prob, abstol=1e-6, reltol=1e-6)
@@ -139,10 +139,10 @@ end
     - `p`: The parameters of the model.
     - `sparse_on`: This is a flag. Takes 1 or 0. 1 uses regularization. (Should be changes in the future)
 """
-function loss_train(model::Function, p,times::Vector{<:AbstractFloat}, data::Matrix{Float32}; sparse_on::Int=0)::Real
+function loss_train(model::Function, p,times::Vector{<:AbstractFloat}, data::Matrix{Float32}; sparse_on::Int=0, pred_length::Int = 10)::Real
     #loss_temp=single_shooting_loss(p)
-    #loss_temp=multiple_shooting_loss(model, p, 5, times,data)
-    loss_temp=single_shooting_loss(model, p, times,data)
+    loss_temp=multiple_shooting_loss(model, p, pred_length, times,data)
+    #loss_temp=single_shooting_loss(model, p, times,data)
     if sparse_on==1
         loss_temp+=reg_loss(p, 5e-4, 0) #if we have sparsity enabled, add the reg loss
     end
