@@ -16,6 +16,7 @@ using Zygote
 using Lux
 #My packages and functions
 include("../helpers/plotting_functions.jl")
+include("../helpers/utils.jl")
 include("loss_functions.jl") #this is not implemented yet
 # KAN PACKAGE LOAD
 include("../Lotka-Volterra/src/KolmogorovArnold.jl")
@@ -122,19 +123,35 @@ function main()
         kanode!(kan1, du, u, p, stM, t)
     end
                             
-    SAVE_ON::Bool = true
-    if SAVE_ON
-        dir = @__DIR__
-        training_dir = find_frame_directory(dir)
-        println("Saving frames to: ", training_dir)
-    else
-        training_dir=""
-    end
+
+    SAVE_ON::Bool = false
+    training_dir = get_training_dir(SAVE_ON)
+
     #opt = Flux.Momentum(1e-3, 0.9)
     opt = Flux.Adam(1e-4)
     N_iter::Int = 10000
     iterator = ProgressBar(1:N_iter)
-
+    pred_length::Int = 100
+    #Things to include in the plot
+    hyperparameter_string = [
+        "N_iter: $N_iter",
+        "layer_width: 5",
+        "grid_size: 5",
+        "dt: 0.01",
+        "tspan_train: $(t_train[1]) to $(t_train[end])",
+        "tspan_test: $(t_test[1]) to $(t_test[end])",
+        "u0: $(u0[1]) $(u0[2])",
+        "Training iters: $N_iter",
+        "optimizer: Adam(1e-4)",
+        "basis_func: rbf",
+        "normalizer: softsign",
+        "spinning_rate: 0.2",
+        "Loss type: multiple_shooting_loss",
+        "Prediction length for multple shooting: $pred_length",
+        "SAVE_ON: $SAVE_ON",
+        "ODE: x' =  x(1-x/5) - h(x,y) \n y' = h(x,y)-y",
+        "h(x,y)=0.5xy"
+    ]
     #Stuff to track loss and test loss
     l = Real[]
     l_test=Real[]
@@ -144,14 +161,14 @@ function main()
         # GRADIENT COMPUTATION
         #println("Computing gradient... ($i)")
         #I think theres a way to get the loss in the call, instead of calling it again for loss_curr
-        grad = Zygote.gradient(p -> loss_train(UDE!, p, t_train, Xn_train), p)[1]
+        grad = Zygote.gradient(p -> loss_train(UDE!, p, t_train, Xn_train; pred_length=pred_length), p)[1]
 
         # UPDATE WITH ADAM OPTIMIZER
         update!(opt, p, grad)
 
         #Add loss to the lists 
-        append!(l, loss_train(UDE!, p,t_train, Xn_train))
-        append!(l_test, loss_train(UDE!, p, t_test, Xn_test))
+        append!(l, loss_train(UDE!, p,t_train, Xn_train;pred_length=pred_length))
+        append!(l_test, loss_train(UDE!, p, t_test, Xn_test;pred_length=pred_length))
         #append!(p_list, [deepcopy(p)])
 
         #Update visuals
@@ -168,7 +185,7 @@ function main()
             #UDE_forecast = single_shooting_predict(UDE!, p,u0, t_test)
             UDE_sol=[t_test UDE_forecast']
             #println("Plotting...")
-            display(save_training_frame(static_data, UDE_sol, kan1,p, stM, i, l,l_test,training_dir; save=SAVE_ON))
+            display(save_training_frame(static_data, UDE_sol, kan1,p, stM, i, l,l_test,hyperparameter_string,training_dir; save=SAVE_ON))
         end
     end
 end
