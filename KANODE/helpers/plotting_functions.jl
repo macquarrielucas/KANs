@@ -343,7 +343,7 @@ Saves a training frame plot consisting of interaction function surfaces, loss, p
   - Bottom right: Time series comparison plot.
 - If `save` is `true`, the plot is saved in the specified `training_dir` with the filename format `frame_XXXXX.png`, where `XXXXX` is the zero-padded iteration number.
 """
-function save_training_frame(static_data::Union{StaticData_1D, StaticData_2D}, UDE_sol::Matrix, nn, pM, stM, iter::Int, loss::Vector{Real}, test_loss::Vector{Real}, hyperparams::Vector{String},  training_dir::String; save = false)::Plots.Plot
+function plot_training_frame(static_data::Union{StaticData_1D, StaticData_2D}, UDE_sol::Matrix, nn, pM, stM, iter::Int, loss::Vector{Real}, test_loss::Vector{Real}, hyperparams::Vector{String})::Plots.Plot
     #= Its assumed that UDEsol is a nx3 matrix where time is in the first column.
     The second and third columns are the predictions for the first and second species respectively.
     This should be changed in the future to account for any number of species/variables.
@@ -376,12 +376,12 @@ function save_training_frame(static_data::Union{StaticData_1D, StaticData_2D}, U
         # Bottom right: Time series comparison
         plot_time_series(plt[5], UDE_sol, static_data)
 
-
+        #=
         if save
             # Save figure with iteration number
             savefig(plt, joinpath(training_dir, "frame_$(lpad(iter, 5, '0')).png"))
         end
-    
+        =#
         return plt
     end
 end

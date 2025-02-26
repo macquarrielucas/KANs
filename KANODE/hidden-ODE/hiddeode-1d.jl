@@ -123,7 +123,7 @@ function main()
     end
                             
 
-    SAVE_ON::Bool = true
+    SAVE_ON::Bool = false
     training_dir = get_training_dir(SAVE_ON)
 
     #opt = Flux.Momentum(1e-3, 0.9)
@@ -184,9 +184,16 @@ function main()
             # UDE_forecast = single_shooting_predict(UDE!, p, u0, t_test)
             UDE_sol = [t_test UDE_forecast']
             # println("Plotting...")
-            plot2 = save_training_frame(static_data, UDE_sol, kan1, p, stM, i, l, l_test, hyperparameter_string, training_dir; save=SAVE_ON)
+            plot2 = save_training_frame(static_data, UDE_sol, kan1, p, stM, i, l, l_test, hyperparameter_string)
 
-            display(plot(plot2, plot1, layout = @layout([a; b])))
+            plt = plot(plot2, plot1, layout = @layout([a; b]))
+
+            if SAVE_ON
+                # Save figure with iteration number
+                savefig(plt, joinpath(training_dir, "frame_$(lpad(i, 5, '0')).png"))
+            end
+
+            display(plt)
         end
     end
 end
