@@ -16,10 +16,9 @@ using Zygote
 using Lux
 #My packages and functions
 include("../helpers/plotting_functions.jl")
-include("../helpers/utils.jl")
-include("loss_functions.jl") #this is not implemented yet
-# KAN PACKAGE LOAD
-include("../Lotka-Volterra/src/KolmogorovArnold.jl")
+include("../helpers/helpers.jl")
+include("../helpers/loss_functions.jl")
+include("../helpers/KolmogorovArnold.jl")
 using .KolmogorovArnold
 
 function h(x)
@@ -40,7 +39,6 @@ function kanode!(model, du, u, p, stM, t)
 end
 
 function generate_data()
-
     #data generation parameters
     dt::Float32 =0.1f0
     tspan_test::Tuple{Float32,Float32} = (0.0, 500)
@@ -78,16 +76,17 @@ function define_KAN(rng)
     # Define KAN
     basis_func = KolmogorovArnold.rbf      # rbf, rswaf
     normalizer = KolmogorovArnold.softsign # sigmoid(_fast), tanh(_fast), softsign
-    layer_width::Int=5
+    layer_width::Int=3
     grid_size::Int=5
     #This KAN looks like
     # psi(normalizer(phi1(normalizer(x)) + phi2(normalizer(x)) + phi3(normalizer(x)) + ... + phi10(normalizer(x))))
     kan = Lux.Chain(
         KolmogorovArnold.KDense( 1, layer_width, grid_size; use_base_act = true, basis_func, normalizer),
+        KolmogorovArnold.KDense(layer_width,  layer_width, grid_size; use_base_act = true, basis_func, normalizer),
         KolmogorovArnold.KDense(layer_width,  1, grid_size; use_base_act = true, basis_func, normalizer),
     )
     pM , stM  = Lux.setup(rng, kan)
-    return kan, pM, stM
+    return kan, pM, stM, layer_width, grid_size
 end
 
 function main()
@@ -98,7 +97,7 @@ function main()
     t_test, Xn_test, t_train, Xn_train = generate_data()
     u0 = Xn_test[:,1]
     println("Initializing KAN...")
-    kan1, pM, stM = define_KAN(rng)
+    kan1, pM, stM, layer_width, grid_size = define_KAN(rng)
     pM_data     = getdata(ComponentArray(pM))
     pM_axis     = getaxes(ComponentArray(pM))
     p = ComponentArray(pM_data, pM_axis) 
@@ -124,51 +123,49 @@ function main()
     end
                             
 
-    SAVE_ON::Bool = false
+    SAVE_ON::Bool = true
     training_dir = get_training_dir(SAVE_ON)
 
     #opt = Flux.Momentum(1e-3, 0.9)
     opt = Flux.Adam(1e-4)
-    N_iter::Int = 10000
+    N_iter::Int = 15000
     iterator = ProgressBar(1:N_iter)
     pred_length::Int = 100
     #Things to include in the plot
     hyperparameter_string = [
-        "N_iter: $N_iter",
-        "layer_width: 5",
-        "grid_size: 5",
-        "dt: 0.01",
-        "tspan_train: $(t_train[1]) to $(t_train[end])",
-        "tspan_test: $(t_test[1]) to $(t_test[end])",
+        "dt: 0.1, tspan_train: $(t_train[1]) to $(t_train[end]), tspan_test: $(t_test[1]) to $(t_test[end])",
         "u0: $(u0[1]) $(u0[2])",
         "Training iters: $N_iter",
         "optimizer: Adam(1e-4)",
-        "basis_func: rbf",
-        "normalizer: softsign",
-        "spinning_rate: 0.2",
-        "Loss type: multiple_shooting_loss",
+        #"layer_width: $layer_width, grid_size: $grid_size",
+        "Architecture: [1,3,5],[3,3,5],[3,1,5]",
+        "Number of parameters: $(length(p))",
+        "basis_func: rbf, normalizer: softsign",
+        "Loss type: multiple_shooting_loss, regularization : on",
         "Prediction length for multple shooting: $pred_length",
-        "SAVE_ON: $SAVE_ON",
-        "ODE: x' =  x(1-x/5) - h(x,y) \n y' = h(x,y)-y",
+        "Save at: $training_dir",
+        "ODE: x' =  h(x,y) - 0.5xy \n y' = 0.5xy -0.03y",
         "h(x,y)=0.5xy"
     ]
     #Stuff to track loss and test loss
     l = Real[]
     l_test=Real[]
     #p_list = []
+
     println("Training...")
     for i in iterator
         # GRADIENT COMPUTATION
         #println("Computing gradient... ($i)")
         #I think theres a way to get the loss in the call, instead of calling it again for loss_curr
-        grad = Zygote.gradient(p -> loss_train(UDE!, p, t_train, Xn_train; pred_length=pred_length), p)[1]
+        grad = Zygote.gradient(p -> loss_train(UDE!, p, t_train, Xn_train;sparse_on=1, pred_length=pred_length), p)[1]
 
         # UPDATE WITH ADAM OPTIMIZER
         update!(opt, p, grad)
 
+        
         #Add loss to the lists 
-        append!(l, loss_train(UDE!, p,t_train, Xn_train;pred_length=pred_length))
-        append!(l_test, loss_train(UDE!, p, t_test, Xn_test;pred_length=pred_length))
+        append!(l, loss_train(UDE!, p,t_train, Xn_train;sparse_on=1, pred_length=pred_length))
+        append!(l_test, loss_train(UDE!, p, t_test, Xn_test;sparse_on=1, pred_length=pred_length))
         #append!(p_list, [deepcopy(p)])
 
         #Update visuals
@@ -178,14 +175,18 @@ function main()
             "| Test_Loss:", @sprintf("%.2e", l_test[end]), 
             "|"
         ))
-        if i%10 == 0 || i==1
-            #Turn the data into an nx3 matrix for the plotting function
-            #UDE_forecast = multiple_shooting_predict(UDE!, p, 10, t_test, Xn_test)
-            UDE_forecast = single_shooting_predict(UDE!, p, Xn_test[:,1], t_test)
-            #UDE_forecast = single_shooting_predict(UDE!, p,u0, t_test)
-            UDE_sol=[t_test UDE_forecast']
-            #println("Plotting...")
-            display(save_training_frame(static_data, UDE_sol, kan1,p, stM, i, l,l_test,hyperparameter_string,training_dir; save=SAVE_ON))
+        if i % 10 == 0 || i == 1
+            plot1 = plot_KAN_diagram(kan1, p::ComponentArray, stM)
+
+            # Turn the data into an nx3 matrix for the plotting function
+            UDE_forecast = multiple_shooting_predict(UDE!, p, 10, t_test, Xn_test)
+            # UDE_forecast = single_shooting_predict(UDE!, p, Xn_test[:, 1], t_test)
+            # UDE_forecast = single_shooting_predict(UDE!, p, u0, t_test)
+            UDE_sol = [t_test UDE_forecast']
+            # println("Plotting...")
+            plot2 = save_training_frame(static_data, UDE_sol, kan1, p, stM, i, l, l_test, hyperparameter_string, training_dir; save=SAVE_ON)
+
+            display(plot(plot2, plot1, layout = @layout([a; b])))
         end
     end
 end

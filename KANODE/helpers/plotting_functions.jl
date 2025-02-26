@@ -1,7 +1,7 @@
 using Printf
 using Suppressor
 using Plots
-
+include("helpers.jl")
 const COLORS = (
     #Hidden function Plot (Top left)
     pred_hidden_function=:red,
@@ -281,13 +281,40 @@ Plots the hyperparameters in a text box.
 function plot_hyperparameters(plt, hyperparams::Vector{String})::Nothing
     text = join(hyperparams, "\n")
     plot!(plt, title = "Hyperparameters", xlim = (0, 1), ylim = (0, 1), showaxis = false)
-    annotate!(plt, 0.5, 0.5, text)
+    annotate!(plt, 0.5, 0.5, text, 8) # The last argument sets the font size
     return nothing
 end
 
 ####################
 ## Main Plotting ##
 ####################
+function plot_activation_function(plt, kan, p::ComponentArray, stM, i::Int, j::Int, l::Int)
+    grid_lims = kan[l].grid_lims
+    xrange = range(grid_lims[1], grid_lims[2], length = 25)
+    #Get the activation function
+    psi=activation_getter(kan, p, stM, i, j, l)
+    #Plot
+    plot!(plt, xrange, psi.(xrange), label = "\\phi_{$l, $i, $j}", lw = 2)
+    return nothing
+end
+function plot_KAN_diagram(kan, p::ComponentArray, stM)
+    num_layers = length(kan)
+    layout = @layout [grid(1, kan[i].in_dims * kan[i].out_dims) for i in 1:num_layers]
+    plt = plot(layout = layout, size = (1600, 1200), titlefontsize = 12)
+
+    plot_index = 1
+    for l in 1:num_layers
+        for i in 1:kan[l].in_dims
+            for j in 1:kan[l].out_dims
+                plot_activation_function(plt[plot_index], kan, p, stM, i, j, l)
+                plot_index += 1
+            end
+        end
+    end
+
+    # Add the title over the whole figure
+    return plt
+end
 """
     save_training_frame(static_data, UDE_sol::Matrix{Float64}, nn, pM, iter::Int, loss::Vector{Real}, test_loss::Vector{Real}, training_dir::String; save = false)::Plots.Plot
 
