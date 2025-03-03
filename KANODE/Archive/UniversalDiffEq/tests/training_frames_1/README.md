@@ -1,0 +1,3 @@
+This was a sanity check to see if the UDE package was actually doing anything. It does not train a neural network here, it only identifies parameters r and m in the lotka volterra equation. Coincidently, the result looked quite pretty so I decided to save it to a file.
+
+This should throw an error if you try to run it inside the training_frames folder as it makes a call to some other source files. Be sure to move it to the correct place if running again.

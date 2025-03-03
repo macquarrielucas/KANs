@@ -18,7 +18,7 @@ end
     node, and l is the layer.
 
 """
-function activation_getter(kan, pM::ComponentArray, stM, i::Int, j::Int, l::Int)::Function
+function activation_getter(kan, p::ComponentArray, stM, i::Int, j::Int, l::Int)::Function
     # Check if l is within bounds
     if l < 1 || l > length(kan)
         throw(ArgumentError("Layer index l=$l is out of bounds. It should be 1 <= l <= $(length(kan))."))
@@ -35,8 +35,8 @@ function activation_getter(kan, pM::ComponentArray, stM, i::Int, j::Int, l::Int)
         throw(ArgumentError("Output node index j=$j is out of bounds. It should be 1 <= j <= $(layer.out_dims)."))
     end
 
-    layer_name = keys(pM)[l]
-    p = pM[layer_name]
+    layer_name = keys(p)[l]
+    p = p[layer_name]
 
     C = Array(p.C)
     W = Array(p.W)

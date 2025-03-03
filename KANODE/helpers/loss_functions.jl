@@ -139,12 +139,12 @@ end
     - `p`: The parameters of the model.
     - `sparse_on`: This is a flag. Takes 1 or 0. 1 uses regularization. (Should be changes in the future)
 """
-function loss_train(model::Function, p,times::Vector{<:AbstractFloat}, data::Matrix{Float32}; sparse_on::Int=0, pred_length::Int = 10)::Real
+function loss_train(model::Function, p,times::Vector{<:AbstractFloat}, data::Matrix{Float32}; sparse_on::Int=0, reg_coeff::AbstractFloat=0, pred_length::Int = 10)::Real
     #loss_temp=single_shooting_loss(p)
     loss_temp=multiple_shooting_loss(model, p, pred_length, times,data)
     #loss_temp=single_shooting_loss(model, p, times,data)
     if sparse_on==1
-        loss_temp+=reg_loss(p, 5e-4, 0) #if we have sparsity enabled, add the reg loss
+        loss_temp+=reg_loss(p, reg_coeff, 0) #if we have sparsity enabled, add the reg loss
     end
     return loss_temp
 end

@@ -128,9 +128,11 @@ function main()
 
     #opt = Flux.Momentum(1e-3, 0.9)
     opt = Flux.Adam(1e-4)
-    N_iter::Int = 15000
+    N_iter::Int = 50000
     iterator = ProgressBar(1:N_iter)
     pred_length::Int = 100
+    REGULARIZATION = 1
+    REG_COEFF=1e-2
     #Things to include in the plot
     hyperparameter_string = [
         "dt: 0.1, tspan_train: $(t_train[1]) to $(t_train[end]), tspan_test: $(t_test[1]) to $(t_test[end])",
@@ -141,8 +143,10 @@ function main()
         "Architecture: [1,3,5],[3,3,5],[3,1,5]",
         "Number of parameters: $(length(p))",
         "basis_func: rbf, normalizer: softsign",
-        "Loss type: multiple_shooting_loss, regularization : on",
-        "Prediction length for multple shooting: $pred_length",
+        "Loss type: multiple_shooting_loss", 
+        "regularization : $REGULARIZATION",
+        "regularization coeffecient: $REG_COEFF",
+        "Prediction length for multiple shooting: $pred_length",
         "Save at: $training_dir",
         "ODE: x' =  h(x,y) - 0.5xy \n y' = 0.5xy -0.03y",
         "h(x,y)=0.5xy"
@@ -157,15 +161,15 @@ function main()
         # GRADIENT COMPUTATION
         #println("Computing gradient... ($i)")
         #I think theres a way to get the loss in the call, instead of calling it again for loss_curr
-        grad = Zygote.gradient(p -> loss_train(UDE!, p, t_train, Xn_train;sparse_on=1, pred_length=pred_length), p)[1]
+        grad = Zygote.gradient(p -> loss_train(UDE!, p, t_train, Xn_train;sparse_on=REGULARIZATION, reg_coeff=REG_COEFF,pred_length=pred_length), p)[1]
 
         # UPDATE WITH ADAM OPTIMIZER
         update!(opt, p, grad)
 
         
         #Add loss to the lists 
-        append!(l, loss_train(UDE!, p,t_train, Xn_train;sparse_on=1, pred_length=pred_length))
-        append!(l_test, loss_train(UDE!, p, t_test, Xn_test;sparse_on=1, pred_length=pred_length))
+        append!(l, loss_train(UDE!, p,t_train, Xn_train;sparse_on=REGULARIZATION,  reg_coeff=REG_COEFF, pred_length=pred_length))
+        append!(l_test, loss_train(UDE!, p, t_test, Xn_test;sparse_on=REGULARIZATION, reg_coeff=REG_COEFF, pred_length=pred_length))
         #append!(p_list, [deepcopy(p)])
 
         #Update visuals
@@ -176,16 +180,15 @@ function main()
             "|"
         ))
         if i % 10 == 0 || i == 1
-            plot1 = plot_KAN_diagram(kan1, p::ComponentArray, stM)
+            plot1 = plot_KAN_diagram(kan1, p::ComponentArray, stM, reshape(Xn_train[1,:], 1, :))
 
             # Turn the data into an nx3 matrix for the plotting function
-            UDE_forecast = multiple_shooting_predict(UDE!, p, 10, t_test, Xn_test)
+            UDE_forecast = multiple_shooting_predict(UDE!, p, pred_length, t_test, Xn_test)
             # UDE_forecast = single_shooting_predict(UDE!, p, Xn_test[:, 1], t_test)
             # UDE_forecast = single_shooting_predict(UDE!, p, u0, t_test)
             UDE_sol = [t_test UDE_forecast']
             # println("Plotting...")
-            plot2 = save_training_frame(static_data, UDE_sol, kan1, p, stM, i, l, l_test, hyperparameter_string)
-
+            plot2 = plot_training_frame(static_data, UDE_sol, kan1, p, stM, i, l, l_test, hyperparameter_string)
             plt = plot(plot2, plot1, layout = @layout([a; b]))
 
             if SAVE_ON
