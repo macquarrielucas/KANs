@@ -108,7 +108,7 @@ Plots the training and test loss profiles on a given plot.
 """
 function plot_loss(plt, loss::Vector{Real}, test_loss::Vector{Real}, iter::Int)::Nothing
     plot!(plt, loss, color = COLORS.loss, label = "training loss",
-          title = string("Loss Profiles| Loss:", @sprintf("%.4e", loss[end]), "|",
+          title = string("Loss Profiles (MSE)| Loss:", @sprintf("%.4e", loss[end]), "|",
                           "Test_Loss:", @sprintf("%.4e", test_loss[end])), xlabel = "iteration",
           yaxis = :log)
     if !isempty(test_loss)
