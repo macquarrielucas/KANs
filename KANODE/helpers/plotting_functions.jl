@@ -292,15 +292,22 @@ function plot_activation_function(plt, kan, p::ComponentArray, stM, i::Int, j::I
     #By default plot the grid length of the activation function.
     grid_lims = kan[l].grid_lims
     if isnothing(xlims)
-        xrange = range(grid_lims[1], grid_lims[2], length = 25)
+        x = range(grid_lims[1], grid_lims[2], length = 25)
     else
-        xrange = range(xlims[1], xlims[2], length = 25)
+        x = range(xlims[1], xlims[2], length = 25)
     end
 
     #Get the activation function
     psi=activation_getter(kan, p, stM, i, j, l)
+
+    psi_x=psi.(x)
     #Plot the function with a horizontal line at y=0 for clarity
-    plot!(plt, xrange, psi.(xrange), label = "\\phi_{$l, $i, $j}", lw = 2, xtickfontsize=8)
+    if (maximum(psi_x)-minimum(psi_x)<=1e-3)
+        mu = sum(psi_x)/length(psi_x)
+        plot!(plt, x, psi_x, ylim=(mu -1e-2,mu+1e-2), label = "\\phi_{$l, $i, $j}", lw = 2, xtickfontsize=8)
+    else
+        plot!(plt, x, psi_x, label = "\\phi_{$l, $i, $j}", lw = 2, xtickfontsize=8) 
+    end
     hline!(plt, [0], label = "", color = :black, lw = 1, linestyle = :dash)
     return nothing
 end
