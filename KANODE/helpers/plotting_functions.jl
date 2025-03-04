@@ -300,8 +300,8 @@ function plot_activation_function(plt, kan, p::ComponentArray, stM, i::Int, j::I
     #Get the activation function
     psi=activation_getter(kan, p, stM, i, j, l)
     #Plot the function with a horizontal line at y=0 for clarity
-    plot!(plt, xrange, psi.(xrange), label = "\\phi_{$l, $i, $j}", lw = 2)
-    hline!(plt, [0], color = :black, lw = 1)
+    plot!(plt, xrange, psi.(xrange), label = "\\phi_{$l, $i, $j}", lw = 2, xtickfontsize=8)
+    hline!(plt, [0], label = "", color = :black, lw = 1, linestyle = :dash)
     return nothing
 end
 """
@@ -312,37 +312,21 @@ end
 - 'Xn': This is the input data of the KAN. It will determine xlims of the activation function plot. Note this may not in general be the same as the whole statespace of the UDE or training set. Expects each row to contain the data for that variable.
 """
 function plot_KAN_diagram(kan, p::ComponentArray, stM, Xn::Matrix{<:AbstractFloat})
+    ranges = activation_range_getter(kan, p, stM, Xn)
     num_layers = length(kan)
     layout = @layout [grid(1, kan[i].in_dims * kan[i].out_dims) for i in 1:num_layers]
-    plt = plot(layout = layout, size = (1600, 1200), titlefontsize = 12)
+    plt = plot(layout = layout, size = (1600, num_layers*500), titlefontsize = 12)
 
     plot_index = 1
-    #We need to pass the input data through each layer to determine the range of each
-    #activator function.
-    #TODO: The effecient way to do this is just to make one forward pass of the network
-    #and store the values at each layer.
     for l in 1:num_layers
-        if l != 1 
-            #Pass the data through the preious layer to find 
-            layer = kan[l-1]
-            st = stM[l-1]
-            layer_name = keys(p)[l-1]
-            p = p[layer_name]
-            #Get the values at the output nodes
-            inputs = layer(Xn, p, st)[1]
-        else 
-            inputs = Xn #The first layer is just the input data
-        end 
         for i in 1:kan[l].in_dims
-            xlims = (minimum(inputs[i,:]), maximum(inputs[i,:]))
+            xlims = ranges[l][i]
             for j in 1:kan[l].out_dims
                 plot_activation_function(plt[plot_index], kan, p, stM, i, j, l; xlims=xlims)
                 plot_index += 1
             end
         end
     end
-
-    # Add the title over the whole figure
     return plt
 end
 """

@@ -69,3 +69,64 @@ function activation_getter(kan, p::ComponentArray, stM, i::Int, j::Int, l::Int):
 
     return activation_function
 end
+"""
+    activation_range_getter(kan, p::ComponentArray, stM, Xn::Matrix{<:AbstractFloat})::Vector{Vector{Tuple}}
+
+Compute the range of activation values for each layer in a KAN model.
+
+# Arguments
+- `kan`: A vector representing the layers of the neural network. Each element corresponds to a layer and should have an `in_dims` field indicating the number of input dimensions.
+- `p::ComponentArray`: A `ComponentArray` containing the parameters for each layer of the network. The keys of `p` should match the layer names.
+- `stM`: A vector representing the state of each layer in the network. Each element corresponds to the state of a layer.
+- `Xn::Matrix{<:AbstractFloat}`: A matrix of input data where each column represents a sample and each row represents a feature.
+
+# Returns
+- `Vector{Vector{Tuple}}`: A vector of vectors, where each inner vector contains tuples representing the minimum and maximum activation values for each input dimension of the corresponding layer.
+
+# Description
+This function calculates the range of activation values for each layer in a neural network by passing the input data through the network. For each layer, it computes the minimum and maximum values of the activations for each input dimension. The first layer uses the input data directly, while subsequent layers use the outputs of the previous layers as inputs.
+
+# Example
+```julia
+kan = [...]  # Define your neural network layers
+p = ComponentArray(...)  # Define your parameters
+stM = [...]  # Define your layer states
+Xn = rand(10, 100)  # Generate some input data
+
+ranges = activation_range_getter(kan, p, stM, Xn)
+
+
+"""
+function activation_range_getter(kan, p::ComponentArray, stM, Xn::Matrix{<:AbstractFloat})::Vector{Vector{Tuple}}
+    # Check if the number of input dimensions in Xn matches kan[1].in_dims
+    if size(Xn, 1) != kan[1].in_dims
+        error("Dimension mismatch: Xn has $(size(Xn, 1)) inputs, but the first layer expects $(kan[1].in_dims) inputs.")
+    end
+
+    num_layers = length(kan)
+    ranges = Vector{Vector{Tuple}}()
+    #We need to pass the input data through each layer to determine the range of each
+    #activator function.
+    for l in 1:num_layers
+        init_ranges_vector = Vector{Tuple}()
+        if l != 1 
+            #Pass the data through the previous layer to find 
+            layer = kan[l-1]
+            st_layer = stM[l-1]
+            layer_name = keys(p)[l-1]
+            p_layer = p[layer_name]
+            #Get the values at the output nodes
+            inputs = layer(Xn, p_layer, st_layer)[1]
+            Xn=inputs
+        else 
+            inputs = Xn #The first layer is just the input data
+        end 
+        for i in 1:kan[l].in_dims
+            xlims = (minimum(inputs[i,:]), maximum(inputs[i,:])) 
+            push!(init_ranges_vector, xlims)
+        end
+
+        push!(ranges, init_ranges_vector)
+    end
+    return ranges
+end
