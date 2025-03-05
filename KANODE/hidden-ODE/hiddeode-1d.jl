@@ -215,4 +215,4 @@ function main(N_iter::Int;
         @save "Trained_model_$N_iter / $N_iter" p stM
     end
 end
-main(25000; SAVE_PLOTS_ON=true, SAVE_MODEL_ON=true)
+#main(25000; SAVE_PLOTS_ON=true, SAVE_MODEL_ON=true)

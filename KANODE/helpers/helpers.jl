@@ -18,7 +18,7 @@ end
     node, and l is the layer.
 
 """
-function activation_getter(kan, p::ComponentArray, stM, i::Int, j::Int, l::Int)::Function
+function activation_getter(kan, p::ComponentArray, stM, l::Int, i::Int, j::Int)::Function
     # Check if l is within bounds
     if l < 1 || l > length(kan)
         throw(ArgumentError("Layer index l=$l is out of bounds. It should be 1 <= l <= $(length(kan))."))

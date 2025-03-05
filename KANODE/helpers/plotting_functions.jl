@@ -298,7 +298,7 @@ function plot_activation_function(plt, kan, p::ComponentArray, stM, i::Int, j::I
     end
 
     #Get the activation function
-    psi=activation_getter(kan, p, stM, i, j, l)
+    psi=activation_getter(kan, p, stM, l,i,j)
 
     psi_x=psi.(x)
     #Plot the function with a horizontal line at y=0 for clarity
