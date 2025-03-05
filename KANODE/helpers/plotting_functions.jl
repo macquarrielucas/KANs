@@ -48,43 +48,6 @@ struct StaticData_1D
     u0::Vector{Float32}
     sol_max_x::Float32
 end
-"""
-    find_frame_directory()::String
-
-Creates a new directory for storing training frames. The function ensures that the 
-    directory structure exists and creates new directories as needed. It starts 
-    with "training_frames_0" and increments the folder count until it finds an 
-    empty directory.
-
-# Returns
-- `String`: The path to the newly created or existing empty directory.
-"""
-function find_frame_directory(dir::String)::String 
-    # Create directories if needed
-    folder_count = 0
-    training_dir = joinpath(dir, "tests", "training_frames_$folder_count")
-    # Set up the folder if it doesn't already exist
-    if !isdir(joinpath(dir, "tests"))
-        println("Making test folder")
-        mkdir(joinpath(dir, "tests"))
-    end
-    if !isdir(training_dir)
-        println("Making training_frames_$folder_count folder")
-        mkdir(training_dir)
-    end
-    is_empty = isempty(readdir(training_dir))
-    # If it's already a directory and it's not empty, try the next folder
-    while isdir(training_dir) && !is_empty 
-        folder_count += 1 
-        training_dir = joinpath(dir, "tests", "training_frames_$folder_count")
-    end
-    if !is_empty
-        println("Making directory ", string(training_dir))
-        mkdir(training_dir)
-    end
-    training_dir
-end
-
 ####################
 ## Subplots ##
 ####################

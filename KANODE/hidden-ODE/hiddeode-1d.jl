@@ -1,4 +1,4 @@
-# PACKAGES AND INCLUSIONS
+## PACKAGES AND INCLUSIONS
 using Profile 
 using ChainRulesCore
 using ComponentArrays
@@ -83,7 +83,6 @@ function define_KAN(rng)
     # psi(normalizer(phi1(normalizer(x)) + phi2(normalizer(x)) + phi3(normalizer(x)) + ... + phi10(normalizer(x))))
     kan = Lux.Chain(
         KolmogorovArnold.KDense( 1, layer_width, grid_size; use_base_act = true, basis_func, normalizer),
-        KolmogorovArnold.KDense(layer_width,  layer_width, grid_size; use_base_act = true, basis_func, normalizer),
         KolmogorovArnold.KDense(layer_width,  1, grid_size; use_base_act = true, basis_func, normalizer),
     )
     pM , stM  = Lux.setup(rng, kan)
@@ -94,7 +93,8 @@ function main(N_iter::Int;
     SAVE_PLOTS_ON::Bool = true, 
     SAVE_MODEL_ON::Bool = true,
     DISPLAY::Bool = false)
-    training_dir = get_training_dir(SAVE_PLOTS_ON)
+    dir = @__DIR__
+    training_dir = get_training_dir(SAVE_PLOTS_ON, dir)
     #Random
     rng = Random.default_rng()
     Random.seed!(rng, 3)
