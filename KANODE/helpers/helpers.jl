@@ -3,7 +3,7 @@
 """
     find_frame_directory()::String
 
-Creates a new directory for storing training frames. The function ensures that the 
+Creates a new directory for storing training frames, checkpoints. The function ensures that the 
     directory structure exists and creates new directories as needed. It starts 
     with "training_frames_0" and increments the folder count until it finds an 
     empty directory.
@@ -11,24 +11,24 @@ Creates a new directory for storing training frames. The function ensures that t
 # Returns
 - `String`: The path to the newly created or existing empty directory.
 """
-function find_frame_directory(dir::String)::String 
+function find_tests_directory(dir::String)::String 
     # Create directories if needed
     folder_count = 0
-    training_dir = joinpath(dir, "tests", "training_frames_$folder_count")
+    training_dir = joinpath(dir, "tests", "test_$folder_count")
     # Set up the folder if it doesn't already exist
     if !isdir(joinpath(dir, "tests"))
         println("Making test folder")
         mkdir(joinpath(dir, "tests"))
     end
     if !isdir(training_dir)
-        println("Making training_frames_$folder_count folder")
+        println("Making"*training_dir*"folder")
         mkdir(training_dir)
     end
     is_empty = isempty(readdir(training_dir))
     # If it's already a directory and it's not empty, try the next folder
     while isdir(training_dir) && !is_empty 
         folder_count += 1 
-        training_dir = joinpath(dir, "tests", "training_frames_$folder_count")
+        training_dir = joinpath(dir, "tests", "test_$folder_count")
     end
     if !is_empty
         println("Making directory ", string(training_dir))
@@ -37,16 +37,19 @@ function find_frame_directory(dir::String)::String
     training_dir
 end
 
-function get_training_dir(SAVE_ON::Bool, dir::String)
-    if SAVE_ON
-        training_dir = find_frame_directory(dir)
-        println("Saving frames to: ", training_dir)
-    else
-        training_dir=""
-    end
+function get_training_dir(dir::String)
+    training_dir = find_tests_directory(dir)
+    println("Saving frames to: ", training_dir)
     return training_dir
 end 
 
+function save_model_parameters(i, N_iter, p::ComponentArray, stM, dir::String)::Nothing 
+    if !isdir(joinpath(dir, "checkpoints"))
+        mkdir(joinpath(dir, "checkpoints"))
+    end
+    filename = joinpath(dir, "checkpoints", "iter$i"*"of$N_iter")
+    @save filename p stM 
+end
 """
     This function takes in the parameters, state, and model for
     a KAN and returns the activation function at the specified
@@ -168,7 +171,3 @@ function activation_range_getter(kan, p::ComponentArray, stM, Xn::Matrix{<:Abstr
     return ranges
 end
 
-function save_model_parameters(i, N_iter, p::ComponentArray, stM, dir::String)::Nothing 
-    filename = dir * ""
-    @save dir p, stM 
-end
