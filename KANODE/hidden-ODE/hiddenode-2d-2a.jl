@@ -35,7 +35,7 @@ function sir!(du,u,p,t)
     du[2] = h(S,I) - γ*I
     du[3] = γ*I
 end
-
+#test git 
 function ude!(model, du, u, p, stM, t)
     NN_(x) = model(x, p, stM)[1]
     S, I, R = u[1], u[2], u[3]
