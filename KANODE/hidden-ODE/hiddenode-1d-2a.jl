@@ -39,12 +39,12 @@ function kanode!(model, du, u, p, stM, t)
     du[2] = 0.5*u[1]*u[2] - 0.03*u[2]
 end
 
-function generate_data()
+function generate_data(dt::Float32 =0.1f0,
+    tspan_test::Tuple{Float32,Float32} = (0.0, 500),
+    tspan_train::Tuple{Float32,Float32} =(0.0, 100),
+    u0::Vector{Float32} = [1.0f0, 1.0f0])
     #data generation parameters
-    dt::Float32 =0.1f0
-    tspan_test::Tuple{Float32,Float32} = (0.0, 500)
-    tspan_train::Tuple{Float32,Float32} =(0.0, 100)
-    u0::Vector{Float32} = [1.0f0, 1.0f0]
+
     p_=Float32[] #These can only hold an array of parameters which are floats.
     prob = ODEProblem(lotka!, u0,tspan_test,p_)
 
@@ -92,14 +92,19 @@ end
 function main(N_iter::Int;
     SAVE_PLOTS_ON::Bool = true, 
     SAVE_MODEL_ON::Bool = true,
-    DISPLAY::Bool = false)
+    DISPLAY::Bool = true)
+
     dir = @__DIR__
-    training_dir = get_training_dir(SAVE_PLOTS_ON, dir)
+    training_dir = get_training_dir(dir)
     #Random
     rng = Random.default_rng()
     Random.seed!(rng, 3)
     println("Generating data...")
-    t_test, Xn_test, t_train, Xn_train = generate_data()
+    dt =0.1f0
+    tspan_test = (0.0, 500)
+    tspan_train=(0.0, 100)
+    u0= [1.0f0, 1.0f0]
+    t_test, Xn_test, t_train, Xn_train = generate_data(dt, tspan_test, tspan_train, u0)
     u0 = Xn_test[:,1]
     println("Initializing KAN...")
     kan1, pM, stM, layer_width, grid_size = define_KAN(rng)
@@ -161,58 +166,52 @@ function main(N_iter::Int;
 
     iterator = ProgressBar(1:N_iter)
     for i in iterator
-        #@time begin 
-            # GRADIENT COMPUTATION
-            #println("Computing gradient... ($i)")
-            #I think theres a way to get the loss in the call, instead of calling it again for loss_curr
-            grad = Zygote.gradient(p -> loss_train(UDE!, p, t_train, Xn_train;sparse_on=REGULARIZATION, reg_coeff=REG_COEFF,pred_length=pred_length), p)[1]
+        # GRADIENT COMPUTATION
+        #println("Computing gradient... ($i)")
+        #I think theres a way to get the loss in the call, instead of calling it again for loss_curr
+        grad = Zygote.gradient(p -> loss_train(UDE!, p, t_train, Xn_train;sparse_on=REGULARIZATION, reg_coeff=REG_COEFF,pred_length=pred_length), p)[1]
 
-            # UPDATE WITH ADAM OPTIMIZER
-            update!(opt, p, grad)
+        # UPDATE WITH ADAM OPTIMIZER
+        update!(opt, p, grad)
 
-            
-            #Add loss to the lists 
-            append!(l, loss_train(UDE!, p,t_train, Xn_train;sparse_on=REGULARIZATION,  reg_coeff=REG_COEFF, pred_length=pred_length))
-            append!(l_test, loss_train(UDE!, p, t_test, Xn_test;sparse_on=REGULARIZATION, reg_coeff=REG_COEFF, pred_length=pred_length))
-            #append!(p_list, [deepcopy(p)])
-            #=
-            #Update visuals
-            set_description(iterator, string(
-                "Iter:", i, 
-                "| Loss:", @sprintf("%.2e", l[end]), 
-                "| Test_Loss:", @sprintf("%.2e", l_test[end]), 
-                "|"
-            ))
-                =#
-            if i % 10 == 0 || i == 1
-                plot1 = plot_KAN_diagram(kan1, p::ComponentArray, stM, reshape(Xn_train[1,:], 1, :))
-
-                # Turn the data into an nx3 matrix for the plotting function
-                UDE_forecast = multiple_shooting_predict(UDE!, p, pred_length, t_test, Xn_test)
-                # UDE_forecast = single_shooting_predict(UDE!, p, Xn_test[:, 1], t_test)
-                # UDE_forecast = single_shooting_predict(UDE!, p, u0, t_test)
-                UDE_sol = [t_test UDE_forecast']
-                # println("Plotting...")
-                plot2 = plot_training_frame(static_data, UDE_sol, kan1, p, stM, i, l, l_test, hyperparameter_string)
-                plt = plot(plot2, plot1, layout = @layout([a; b]))
         
-                if SAVE_PLOTS_ON
-                    # Save figure with iteration number
-                    savefig(plt, joinpath(training_dir, "frame_$(lpad(i, 5, '0')).png"))
+        #Add loss to the lists 
+        append!(l, loss_train(UDE!, p,t_train, Xn_train;sparse_on=REGULARIZATION,  reg_coeff=REG_COEFF, pred_length=pred_length))
+        append!(l_test, loss_train(UDE!, p, t_test, Xn_test;sparse_on=REGULARIZATION, reg_coeff=REG_COEFF, pred_length=pred_length))
+        #append!(p_list, [deepcopy(p)])
+        #Update visuals
+        set_description(iterator, string(
+            "Iter:", i, 
+            "| Loss:", @sprintf("%.2e", l[end]), 
+            "| Test_Loss:", @sprintf("%.2e", l_test[end]), 
+            "|"
+        ))
+        if (i % 10 == 0 || i == 1) && (SAVE_PLOTS_ON || DISPLAY)
+            plot1 = plot_KAN_diagram(kan1, p::ComponentArray, stM, reshape(Xn_train[1,:], 1, :))
+
+            # Turn the data into an nx3 matrix for the plotting function
+            UDE_forecast = multiple_shooting_predict(UDE!, p, pred_length, t_test, Xn_test)
+            # UDE_forecast = single_shooting_predict(UDE!, p, Xn_test[:, 1], t_test)
+            # UDE_forecast = single_shooting_predict(UDE!, p, u0, t_test)
+            UDE_sol = [t_test UDE_forecast']
+            # println("Plotting...")
+            plot2 = plot_training_frame(static_data, UDE_sol, kan1, p, stM, i, l, l_test, hyperparameter_string)
+            plt = plot(plot2, plot1, layout = @layout([a; b]))
+    
+            if SAVE_PLOTS_ON
+                # Save figure with iteration number
+                if !isdir(joinpath(training_dir,"frames"))
+                    mkdir(joinpath(training_dir,"frames"))
                 end
-                if DISPLAY
-                    display(plt)     
-                end
+                savefig(plt, joinpath(training_dir,"frames", "frame_$(lpad(i, 5, '0')).png"))
             end
-            if i % 1000 == 0 && SAVE_MODEL_ON
-                println("Saving Model ($i/$N_iter)...")
-                @save "Trained_model_$i of$N_iter" p stM
+            if DISPLAY
+                display(plt)     
             end
-        #end
-    end
-    if SAVE_MODEL_ON
-        println("Saving Model...")
-        @save "Trained_model_$N_iter / $N_iter" p stM
+        end
+        if i % 1000 == 0 && SAVE_MODEL_ON
+            save_model_parameters(i,N_iter,p ,stM,training_dir)
+        end
     end
 end
 #main(25000; SAVE_PLOTS_ON=true, SAVE_MODEL_ON=true)

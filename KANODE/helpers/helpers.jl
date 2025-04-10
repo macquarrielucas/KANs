@@ -1,4 +1,4 @@
-
+using JLD2
 
 """
     find_frame_directory()::String
@@ -17,7 +17,7 @@ function find_tests_directory(dir::String)::String
     training_dir = joinpath(dir, "tests", "test_$folder_count")
     # Set up the folder if it doesn't already exist
     if !isdir(joinpath(dir, "tests"))
-        println("Making test folder")
+        @info "Making test folder"
         mkdir(joinpath(dir, "tests"))
     end
     if !isdir(training_dir)
@@ -43,11 +43,11 @@ function get_training_dir(dir::String)
     return training_dir
 end 
 
-function save_model_parameters(i, N_iter, p::ComponentArray, stM, dir::String)::Nothing 
+function save_model_parameters(i, N_iter, p::ComponentArray, stM, dir::String, name::String)::Nothing 
     if !isdir(joinpath(dir, "checkpoints"))
         mkdir(joinpath(dir, "checkpoints"))
     end
-    filename = joinpath(dir, "checkpoints", "iter$i"*"of$N_iter")
+    filename = joinpath(dir, "checkpoints", "$name"*"_iter$i"*"of$N_iter")
     @save filename p stM 
 end
 """

@@ -1,3 +1,4 @@
+#This is for training the KAN model
 ## PACKAGES AND INCLUSIONS
 using Profile 
 using ChainRulesCore
@@ -15,6 +16,7 @@ using Random
 using Zygote
 using Lux
 using JLD2
+using Logging
 #My packages and functions
 include("../helpers/plotting_functions.jl")
 include("../helpers/helpers.jl")
@@ -33,9 +35,9 @@ function lotka!(du,u,p,t)
 end
 
 # CONSTRUCT KAN-ODES
-function kanode!(model, du, u, p, stM, t)
-    kan1_(x) = model([x], p, stM)[1][1]
-    du[1] = kan1_(u[1]) - 0.5*u[1]*u[2]
+function ude!(model, du, u, p, stM, t)
+    NN_(x) = model([x], p, stM)[1][1]
+    du[1] = NN_(u[1]) - 0.5*u[1]*u[2]
     du[2] = 0.5*u[1]*u[2] - 0.03*u[2]
 end
 
@@ -86,50 +88,34 @@ function define_KAN(rng)
         KolmogorovArnold.KDense(layer_width,  1, grid_size; use_base_act = true, basis_func, normalizer),
     )
     pM , stM  = Lux.setup(rng, kan)
-    return kan, pM, stM, layer_width, grid_size
+    return kan, pM, stM
 end
 
-function main(N_iter::Int;
+function train_kan(N_iter::Int;
     SAVE_PLOTS_ON::Bool = true, 
     SAVE_MODEL_ON::Bool = true,
     DISPLAY::Bool = true)
 
     dir = @__DIR__
     training_dir = get_training_dir(dir)
+    @info "Training directory: $training_dir"
     #Random
     rng = Random.default_rng()
     Random.seed!(rng, 3)
-    println("Generating data...")
+    @info "Generating data..."
     t_test, Xn_test, t_train, Xn_train = generate_data()
     u0 = Xn_test[:,1]
-    println("Initializing KAN...")
-    kan1, pM, stM, layer_width, grid_size = define_KAN(rng)
+    @info "Initializing KAN..."
+    kan1, pM, stM = define_KAN(rng)
     pM_data     = getdata(ComponentArray(pM))
     pM_axis     = getaxes(ComponentArray(pM))
     p = ComponentArray(pM_data, pM_axis) 
     #p = (deepcopy(pM_data))./1e5 ; #this was in the original code, but i dont know why
-
-    println("Defining static data...")
-    ##Plotting
-    sol_max_x =maximum(Xn_train[1,:])  #Bounds on the interaction plot
-    x = range(-1, sol_max_x+1, length=40)
-    true_h = [h(i) for i in x]  # True interaction function   
-    tspan_train = (t_train[1], t_train[end])
-    observation_data = [t_test Xn_test'] #This is the data that we will be comparing to
-    static_data = StaticData_1D(observation_data, 
-                                x,
-                                true_h,
-                                tspan_train, 
-                                u0, 
-                                sol_max_x)
-
     #This is needed to pass onto training step
     function UDE!(du,u,p,t)
-        kanode!(kan1, du, u, p, stM, t)
+        ude!(kan1, du, u, p, stM, t)
     end
-                            
-
-
+    
     #opt = Flux.Momentum(1e-3, 0.9)
     opt = Flux.Adam(1e-4)
     pred_length::Int = 100
@@ -158,8 +144,7 @@ function main(N_iter::Int;
     l_test=Real[]
     #p_list = []
 
-    println("Training...")
-
+    @info "Training KAN..."
     iterator = ProgressBar(1:N_iter)
     for i in iterator
         # GRADIENT COMPUTATION
@@ -175,7 +160,6 @@ function main(N_iter::Int;
         append!(l, loss_train(UDE!, p,t_train, Xn_train;sparse_on=REGULARIZATION,  reg_coeff=REG_COEFF, pred_length=pred_length))
         append!(l_test, loss_train(UDE!, p, t_test, Xn_test;sparse_on=REGULARIZATION, reg_coeff=REG_COEFF, pred_length=pred_length))
         #append!(p_list, [deepcopy(p)])
-        #=
         #Update visuals
         set_description(iterator, string(
             "Iter:", i, 
@@ -183,7 +167,6 @@ function main(N_iter::Int;
             "| Test_Loss:", @sprintf("%.2e", l_test[end]), 
             "|"
         ))
-            =#
         if (i % 10 == 0 || i == 1) && (SAVE_PLOTS_ON || DISPLAY)
             plot1 = plot_KAN_diagram(kan1, p::ComponentArray, stM, reshape(Xn_train[1,:], 1, :))
 
@@ -199,6 +182,7 @@ function main(N_iter::Int;
             if SAVE_PLOTS_ON
                 # Save figure with iteration number
                 if !isdir(joinpath(training_dir,"frames"))
+                    @info "Creating directory for frames"
                     mkdir(joinpath(training_dir,"frames"))
                 end
                 savefig(plt, joinpath(training_dir,"frames", "frame_$(lpad(i, 5, '0')).png"))
@@ -207,9 +191,15 @@ function main(N_iter::Int;
                 display(plt)     
             end
         end
-        if i % 1000 == 0 && SAVE_MODEL_ON
-            save_model_parameters(i,N_iter,p ,stM,training_dir)
+        if i%1000==0 & SAVE_MODEL_ON
+            save_model_parameters(i,N_iter,p ,stM,training_dir,"KAN")
         end
     end
+    @info "Training complete. Saving final model..."
+    save_model_parameters(N_iter,N_iter,p ,stM,training_dir,"KAN")
+    @info "Final model saved at $training_dir"
+    @info "Saving losses"
+    @save joinpath(training_dir, "final_losses_KAN.jld2") l l_test
+    @info "Losses saved at $training_dir"
 end
-#main(25000; SAVE_PLOTS_ON=true, SAVE_MODEL_ON=true)
+#main(100; SAVE_PLOTS_ON=false, SAVE_MODEL_ON=true, DISPLAY=false)

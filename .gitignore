@@ -7,3 +7,4 @@ KANODE/UniversalDiffEq/frames
 KANODE/UniversalDiffEq/tests
 KANODE/hidden-ODE/tests/
 KANODE/helpers/tests
+KANODE/outputs/*
